@@ -1,0 +1,1544 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html">
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+        <title>np_buffermap - numpy_buffermap 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">numpy_buffermap 0.1.0 documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <span class="sidebar-brand-text">numpy_buffermap 0.1.0 documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API Reference</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for np_buffermap</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="sd">&quot;&quot;&quot;Numpy Buffer Map</span>
+<span class="sd">===================</span>
+
+<span class="sd">A compact toolkit for laying out multiple NumPy arrays inside one or more</span>
+<span class="sd">aligned backing buffers using a tree of nodes. The tree encodes *sharing</span>
+<span class="sd">semantics* (shared vs. distinct regions), alignment policy, offsets, and</span>
+<span class="sd">friendly labels. The pipeline is:</span>
+
+<span class="sd">1) **Reduction**: merge adjacent containers that share the same rule.</span>
+<span class="sd">2) **Size propagation &amp; offset assignment**: compute `nbytes` per node and</span>
+<span class="sd">   assign byte offsets (respecting alignment and container flags).</span>
+<span class="sd">3) **Allocation**: allocate a single aligned top buffer and map `ArrayNode`s</span>
+<span class="sd">   to views into it.</span>
+
+<span class="sd">Core node types:</span>
+<span class="sd">- **ContainerNode**: internal node that carries a rule: `BufferMap.SHARED`</span>
+<span class="sd">  (children occupy the same region sized to the max child) or</span>
+<span class="sd">  `BufferMap.DISTINCT` (children are concatenated, optionally without</span>
+<span class="sd">  per-child alignment when `no_align=True`).</span>
+<span class="sd">- **ArrayNode**: leaf that becomes a concrete NumPy array; supports optional</span>
+<span class="sd">  *aligned leading dimension* (`align_ldim`) producing a padded backing shape</span>
+<span class="sd">  (`bshape`) while exposing a trimmed logical `shape`.</span>
+<span class="sd">- **ValueNode**: leaf that participates in traversal/flattening but does not</span>
+<span class="sd">  consume buffer bytes.</span>
+
+<span class="sd">Export helpers:</span>
+<span class="sd">- **`bmap_todot`**: emit a Graphviz DOT representation using `anytree`.</span>
+<span class="sd">- **`bmap_pyvis`** (defined later): visualize via PyVis/NetworkX/pydot.</span>
+
+<span class="sd">Quickstart</span>
+<span class="sd">----------</span>
+<span class="sd">Build a tree with containers and arrays, then run `build_bmap` → `allocate_bmap`,</span>
+<span class="sd">or call `ContainerNode.build_flatmap()` for the one-shot variant. Flattening</span>
+<span class="sd">helpers (`flatten_items`, `flat_inits`) return leaves or initialized values in</span>
+<span class="sd">preorder.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">cache</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">anytree</span><span class="w"> </span><span class="kn">import</span> <span class="n">NodeMixin</span><span class="p">,</span> <span class="n">PreOrderIter</span><span class="p">,</span> <span class="n">RenderTree</span><span class="p">,</span> <span class="n">DoubleStyle</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">anytree.exporter</span><span class="w"> </span><span class="kn">import</span> <span class="n">DotExporter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">aopt.utils.numba</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nbu</span>
+
+
+<span class="c1"># __all__ = [</span>
+<span class="c1">#     &quot;BufferMap&quot;,</span>
+<span class="c1">#     &quot;ar_spec&quot;,</span>
+<span class="c1">#     &quot;ArrayNode&quot;,</span>
+<span class="c1">#     &quot;ContainerNode&quot;,</span>
+<span class="c1">#     &quot;sb_node&quot;,</span>
+<span class="c1">#     &quot;db_node&quot;,</span>
+<span class="c1">#     &quot;reduce_bmap&quot;,</span>
+<span class="c1">#     &quot;gen_buffer_specs&quot;,</span>
+<span class="c1">#     &quot;check_bmap&quot;,</span>
+<span class="c1">#     &quot;build_bmap&quot;,</span>
+<span class="c1">#     &quot;allocate_bmap&quot;,</span>
+<span class="c1">#     &quot;bmap_get&quot;,</span>
+<span class="c1">#     &quot;flat_bmap_inits&quot;,</span>
+<span class="c1">#     &quot;bmap_todot&quot;,</span>
+<span class="c1">#     &quot;bmap_pyvis&quot;,</span>
+<span class="c1">#     &quot;save_bmap_tree&quot;,</span>
+<span class="c1"># ]</span>
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Basic constants</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+
+<div class="viewcode-block" id="BufferMap">
+<a class="viewcode-back" href="../api.html#np_buffermap.BufferMap">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BufferMap</span><span class="p">:</span>
+    <span class="n">SHARED</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">DISTINCT</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span></div>
+
+
+
+<div class="viewcode-block" id="BufferAlign">
+<a class="viewcode-back" href="../api.html#np_buffermap.BufferAlign">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BufferAlign</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Common buffer alignment sizes in bytes.&quot;&quot;&quot;</span>
+
+    <span class="n">BYTE</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># 8‑bit</span>
+    <span class="n">WORD</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># 16‑bit</span>
+    <span class="n">DWORD</span> <span class="o">=</span> <span class="mi">4</span>  <span class="c1"># 32‑bit</span>
+    <span class="n">QWORD</span> <span class="o">=</span> <span class="mi">8</span>  <span class="c1"># 64‑bit</span>
+    <span class="n">CACHE_LINE</span> <span class="o">=</span> <span class="mi">64</span>  <span class="c1"># Typical L1/L2 cache line size</span>
+    <span class="n">SSE</span> <span class="o">=</span> <span class="mi">16</span>  <span class="c1"># 128‑bit vector registers (SSE)</span>
+    <span class="n">AVX</span> <span class="o">=</span> <span class="mi">32</span>  <span class="c1"># 256‑bit vector registers (AVX/AVX2)</span>
+    <span class="n">AVX512</span> <span class="o">=</span> <span class="mi">64</span>  <span class="c1"># 512‑bit vector registers (AVX‑512)</span>
+    <span class="n">PAGE</span> <span class="o">=</span> <span class="mi">4096</span>  <span class="c1"># Typical OS page size</span></div>
+
+
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="kn">import</span> <span class="n">typeof</span>
+
+
+<div class="viewcode-block" id="NativeTypes">
+<a class="viewcode-back" href="../api.html#np_buffermap.NativeTypes">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NativeTypes</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sizes of common primitive types across NumPy and Numba ecosystems.</span>
+
+<span class="sd">    The attributes ending with ``b`` expose the **byte-size** of the type.</span>
+<span class="sd">    These are useful when interoperating with BLAS/LAPACK backends that expect</span>
+<span class="sd">    LP64 vs. ILP64 integer widths, or when constructing aligned buffers and</span>
+<span class="sd">    computing strides. Values are resolved at import-time from the active</span>
+<span class="sd">    platform (e.g., pointer width via ``np.intp``) and Numba&#39;s typing layer.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">POINTER</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">intp</span><span class="p">)</span>  <span class="c1"># system pointer size</span>
+    <span class="n">POINTERb</span> <span class="o">=</span> <span class="n">POINTER</span><span class="o">.</span><span class="n">itemsize</span>
+
+    <span class="n">NP_INT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int_</span><span class="p">)</span>
+    <span class="n">NP_INTb</span> <span class="o">=</span> <span class="n">NP_INT</span><span class="o">.</span><span class="n">itemsize</span>
+    <span class="n">NP_FLOAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float_</span><span class="p">)</span>
+    <span class="n">NP_FLOATb</span> <span class="o">=</span> <span class="n">NP_FLOAT</span><span class="o">.</span><span class="n">itemsize</span>
+    <span class="n">NP_BOOL</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">)</span>
+    <span class="n">NP_BOOLb</span> <span class="o">=</span> <span class="n">NP_BOOL</span><span class="o">.</span><span class="n">itemsize</span>
+    <span class="n">NP_COMPLEX</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">complex_</span><span class="p">)</span>
+    <span class="n">NP_COMPLEXb</span> <span class="o">=</span> <span class="n">NP_COMPLEX</span><span class="o">.</span><span class="n">itemsize</span>
+
+    <span class="n">NB_INT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">typeof</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+    <span class="n">NB_INTb</span> <span class="o">=</span> <span class="n">NB_INT</span><span class="o">.</span><span class="n">itemsize</span>
+    <span class="n">NB_FLOAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">typeof</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+    <span class="n">NB_FLOATb</span> <span class="o">=</span> <span class="n">NB_FLOAT</span><span class="o">.</span><span class="n">itemsize</span>
+    <span class="n">NB_BOOL</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">typeof</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+    <span class="n">NB_BOOLb</span> <span class="o">=</span> <span class="n">NB_BOOL</span><span class="o">.</span><span class="n">itemsize</span>
+    <span class="n">NB_COMPLEX</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">typeof</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+    <span class="n">NB_COMPLEXb</span> <span class="o">=</span> <span class="n">NB_COMPLEX</span><span class="o">.</span><span class="n">itemsize</span>
+
+    <span class="n">LP64_I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">LP64_Ib</span> <span class="o">=</span> <span class="n">LP64_I</span><span class="o">.</span><span class="n">itemsize</span>
+    <span class="n">ILP64_I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">ILP64_Ib</span> <span class="o">=</span> <span class="n">ILP64_I</span><span class="o">.</span><span class="n">itemsize</span></div>
+
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_IDGen</span><span class="p">:</span>
+    <span class="n">_ctr</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">new_id</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">_ctr</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="aligned_buffer">
+<a class="viewcode-back" href="../api.html#np_buffermap.aligned_buffer">[docs]</a>
+<span class="nd">@nbu</span><span class="o">.</span><span class="n">rgc</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">aligned_buffer</span><span class="p">(</span><span class="n">n_bytes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">align</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">BufferAlign</span><span class="o">.</span><span class="n">AVX512</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return an aligned ``uint8`` view of length ``n_bytes``.</span>
+
+<span class="sd">    A slightly oversized buffer is allocated and then *manually aligned* by</span>
+<span class="sd">    slicing so that ``result.ctypes.data % align == 0``. The extra capacity is</span>
+<span class="sd">    not exposed by the returned view.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    n_bytes : int</span>
+<span class="sd">        Logical size of the returned view (in bytes).</span>
+<span class="sd">    align : int</span>
+<span class="sd">        Desired byte alignment (power-of-two is assumed).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">raw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_bytes</span> <span class="o">+</span> <span class="n">align</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+    <span class="n">offset</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="n">raw</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">align</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">raw</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">n_bytes</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="BaseNode">
+<a class="viewcode-back" href="../api.html#np_buffermap.BaseNode">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BaseNode</span><span class="p">(</span><span class="n">NodeMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for all nodes participating in the buffer map.</span>
+
+<span class="sd">    Common fields</span>
+<span class="sd">    -------------</span>
+<span class="sd">    id : int</span>
+<span class="sd">        Stable, monotonically increasing identifier for DOT/back-refs.</span>
+<span class="sd">    label : str | None</span>
+<span class="sd">        Human-readable label; may be joined by parent during reduction.</span>
+<span class="sd">    nbytes : int | None</span>
+<span class="sd">        Size contribution of the subtree or array (computed in ``build_bmap``).</span>
+<span class="sd">    ofs : int | None</span>
+<span class="sd">        Start offset within the root buffer (assigned in ``gen_buffer_specs``).</span>
+<span class="sd">    buffer : np.ndarray | None</span>
+<span class="sd">        For containers: a slice of the root buffer covering the subtree.</span>
+<span class="sd">        For arrays: not used directly; see ``ArrayNode.array``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">no_merge</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_IDGen</span><span class="o">.</span><span class="n">new_id</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">no_merge</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">no_merge</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nbytes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ofs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_short</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span>
+
+    <span class="nd">@name</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="nd">@name</span><span class="o">.</span><span class="n">deleter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span></div>
+
+
+
+<div class="viewcode-block" id="ValueNode">
+<a class="viewcode-back" href="../api.html#np_buffermap.ValueNode">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ValueNode</span><span class="p">(</span><span class="n">BaseNode</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Leaf node carrying a Python value that does **not** occupy buffer space.</span>
+
+<span class="sd">    Useful for threading literal parameters through the tree so that</span>
+<span class="sd">    ``flatten_items`` and friends preserve order alongside arrays.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">value</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">no_merge</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">vtype</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;|Value </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_short</span><span class="p">()</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">)[:</span><span class="mi">50</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">vtype</span><span class="si">}</span><span class="s2">|&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="ArrayNode">
+<a class="viewcode-back" href="../api.html#np_buffermap.ArrayNode">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ArrayNode</span><span class="p">(</span><span class="n">BaseNode</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Leaf node that materializes as a NumPy array.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - ``shape`` is the logical array shape; ``bshape`` is the *backing* shape</span>
+<span class="sd">      when an aligned leading dimension is requested via ``align_ldim``.</span>
+<span class="sd">    - When ``align_ldim`` is provided, the array&#39;s last (C-order) or first</span>
+<span class="sd">      (F-order) dimension is padded to an alignment-friendly multiple in the</span>
+<span class="sd">      backing buffer, while ``array`` exposes the trimmed logical shape.</span>
+<span class="sd">    - ``init_op`` can be a scalar, an ndarray (copied/viewed), or a callable</span>
+<span class="sd">      that receives the newly created array for in-place initialization.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">shape</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,),</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+        <span class="n">order</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span>
+        <span class="n">init_op</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">align_ldim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">no_merge</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bshape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">barray</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">array</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">align_ldim</span> <span class="o">=</span> <span class="n">align_ldim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">order</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_op</span> <span class="o">=</span> <span class="n">init_op</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="n">shape</span><span class="p">,)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="k">else</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">shape</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">align_ldim</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bshape</span> <span class="o">=</span> <span class="n">align_ldim</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shape</span> <span class="o">=</span> <span class="n">s</span>
+        <span class="k">elif</span> <span class="n">align_ldim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shape</span> <span class="o">=</span> <span class="n">s</span>
+            <span class="n">rsz</span> <span class="o">=</span> <span class="n">align_ldim</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">itemsize</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="s2">&quot;C&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bshape</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">s</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="p">((</span><span class="n">s</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">rsz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">rsz</span><span class="p">)</span> <span class="o">*</span> <span class="n">rsz</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bshape</span> <span class="o">=</span> <span class="p">(((</span><span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">rsz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">rsz</span><span class="p">)</span> <span class="o">*</span> <span class="n">rsz</span><span class="p">,</span> <span class="o">*</span><span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bshape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span> <span class="o">=</span> <span class="n">s</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nbytes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">itemsize</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">shp</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bshape</span><span class="p">:</span>
+            <span class="n">bshp</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bshape</span><span class="p">))</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;|Array </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_short</span><span class="p">()</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">bshp</span><span class="si">}</span><span class="s2">) (</span><span class="si">{</span><span class="n">shp</span><span class="si">}</span><span class="s2">) </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">|&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;|Array </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_short</span><span class="p">()</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">shp</span><span class="si">}</span><span class="s2">) </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">|&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_rinit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply ``init_op`` to ``self.array`` if provided.</span>
+
+<span class="sd">        - If ``init_op`` is callable, it is invoked with the array for in-place</span>
+<span class="sd">          initialization.</span>
+<span class="sd">        - Otherwise, the array is filled/broadcast-assigned with the value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_op</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_op</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">init_op</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">array</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">array</span><span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_op</span>
+
+<div class="viewcode-block" id="ArrayNode.mk_array">
+<a class="viewcode-back" href="../api.html#np_buffermap.ArrayNode.mk_array">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mk_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buffer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Materialize ``self.array`` either standalone or as a view on</span>
+<span class="sd">        ``buffer``.</span>
+
+<span class="sd">        Cases</span>
+<span class="sd">        -----</span>
+<span class="sd">        - ``buffer is None`` and no array exists: allocate a fresh ndarray with</span>
+<span class="sd">          the logical ``shape``/``dtype``/``order``.</span>
+<span class="sd">        - ``buffer is not None``: create a *view* into the provided root buffer</span>
+<span class="sd">          starting at ``self.ofs`` with total elements ``prod(bshape)`` and</span>
+<span class="sd">          reshape to ``bshape``.</span>
+<span class="sd">        - If ``align_ldim`` is set, store the backing view in ``self.barray`` and</span>
+<span class="sd">          expose a trimmed logical view in ``self.array`` (slice along the aligned</span>
+<span class="sd">          dimension).</span>
+
+<span class="sd">        ``_rinit`` is invoked at the end to apply ``init_op``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">y</span> <span class="o">:=</span> <span class="p">(</span><span class="n">buffer</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">array</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">y</span> <span class="o">:=</span> <span class="p">(</span><span class="n">buffer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">cnt</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bshape</span><span class="p">))</span>
+            <span class="n">view</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span>
+                <span class="n">buffer</span><span class="p">,</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+                <span class="n">count</span><span class="o">=</span><span class="n">cnt</span><span class="p">,</span>
+                <span class="n">offset</span><span class="o">=</span><span class="mi">0</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ofs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">ofs</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">view</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bshape</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">array</span> <span class="o">=</span> <span class="n">view</span>
+        <span class="k">if</span> <span class="n">y</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">align_ldim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">barray</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">array</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">array</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">barray</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="s2">&quot;C&quot;</span>
+                <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">barray</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_rinit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">array</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">array</span></div>
+
+
+
+<span class="n">ItemNodeT</span> <span class="o">=</span> <span class="n">ValueNode</span> <span class="o">|</span> <span class="n">ArrayNode</span>
+
+
+<div class="viewcode-block" id="ContainerNode">
+<a class="viewcode-back" href="../api.html#np_buffermap.ContainerNode">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ContainerNode</span><span class="p">(</span><span class="n">BaseNode</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Internal node controlling how children share backing memory.</span>
+
+<span class="sd">    Rules</span>
+<span class="sd">    -----</span>
+<span class="sd">    - ``DISTINCT``: children are concatenated in order; each child&#39;s region is</span>
+<span class="sd">      rounded up to the global alignment unless ``no_align=True``, in which case</span>
+<span class="sd">      only the *container&#39;s* total is rounded once.</span>
+<span class="sd">    - ``SHARED``: all children map to the same region whose size equals the</span>
+<span class="sd">      maximum child size, rounded up to alignment.</span>
+
+<span class="sd">    Flags</span>
+<span class="sd">    -----</span>
+<span class="sd">    no_merge : bool</span>
+<span class="sd">        Prevents being merged with a like-ruled parent/child during reduction.</span>
+<span class="sd">    no_align : bool</span>
+<span class="sd">        Only for ``DISTINCT``: disables per-child rounding so contiguous regions</span>
+<span class="sd">        can exactly match external memory layouts.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">children</span><span class="p">:</span> <span class="s2">&quot;BaseNode&quot;</span><span class="p">,</span>
+        <span class="n">rule</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">BufferMap</span><span class="o">.</span><span class="n">DISTINCT</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">no_merge</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">no_align</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">no_merge</span><span class="o">=</span><span class="n">no_merge</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rule</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rule</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">no_align</span> <span class="o">=</span> <span class="n">no_align</span>  <span class="c1"># only effective for distinct rule nodes.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="o">*</span><span class="n">children</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ContainerNode.add">
+<a class="viewcode-back" href="../api.html#np_buffermap.ContainerNode.add">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">kids</span><span class="p">:</span> <span class="s2">&quot;BaseNode&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ContainerNode&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Append children to this container and set their parent pointer.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kids</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">BaseNode</span><span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Children must be BaseNode instances&quot;</span><span class="p">)</span>
+            <span class="n">k</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="bp">self</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="ContainerNode.insert">
+<a class="viewcode-back" href="../api.html#np_buffermap.ContainerNode.insert">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">insert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="o">*</span><span class="n">kids</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Insert one or more children at a specific position.</span>
+
+<span class="sd">        Existing instances of the same nodes are first removed to avoid</span>
+<span class="sd">        duplicates, then the desired order is established.</span>
+<span class="sd">        Returns ``self`` for chaining.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kids</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">BaseNode</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Children must be BaseNode instances&quot;</span><span class="p">)</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kids</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">current</span><span class="p">:</span>
+                <span class="n">current</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+        <span class="n">new_order</span> <span class="o">=</span> <span class="n">current</span><span class="p">[:</span><span class="n">index</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">kids</span><span class="p">)</span> <span class="o">+</span> <span class="n">current</span><span class="p">[</span><span class="n">index</span><span class="p">:]</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kids</span><span class="p">:</span>
+            <span class="n">k</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="bp">self</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">children</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">new_order</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="ContainerNode.order">
+<a class="viewcode-back" href="../api.html#np_buffermap.ContainerNode.order">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">order</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">indices</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reorder existing children using a permutation of positions [0..n-1].</span>
+
+<span class="sd">        Raises ``ValueError`` if the indices do not form a valid permutation.</span>
+<span class="sd">        Returns ``self`` for chaining.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">children</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">)</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">children</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> indices, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Indices must be a permutation of 0..</span><span class="si">{</span><span class="n">n</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">reordered</span> <span class="o">=</span> <span class="p">[</span><span class="n">children</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">children</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">reordered</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="ContainerNode.pop">
+<a class="viewcode-back" href="../api.html#np_buffermap.ContainerNode.pop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">idxs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove and return children by index and/or label.</span>
+
+<span class="sd">        Indices can be integers (negative supported) or labels (string).</span>
+<span class="sd">        The returned list preserves the *request* order, not the tree</span>
+<span class="sd">        order.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Copy current children to a mutable list</span>
+        <span class="n">children</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">)</span>
+        <span class="c1"># Use dict to preserve requested order and avoid duplicates</span>
+        <span class="n">positions</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">idxs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="c1"># Match all children with this label</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">child</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">children</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">child</span><span class="o">.</span><span class="n">label</span> <span class="o">==</span> <span class="n">idx</span> <span class="ow">and</span> <span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">positions</span><span class="p">:</span>
+                        <span class="n">positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="c1"># Support negative indices</span>
+                <span class="n">pos</span> <span class="o">=</span> <span class="n">idx</span> <span class="k">if</span> <span class="n">idx</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">children</span><span class="p">)</span> <span class="o">+</span> <span class="n">idx</span>
+                <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">pos</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">children</span><span class="p">)</span> <span class="ow">and</span> <span class="n">pos</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">positions</span><span class="p">:</span>
+                    <span class="n">positions</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Indices must be either int or str&quot;</span><span class="p">)</span>
+        <span class="c1"># Collect nodes to return in requested order</span>
+        <span class="n">popped</span> <span class="o">=</span> <span class="p">[</span><span class="n">children</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">positions</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
+        <span class="c1"># Remove from highest index to lowest to avoid shifting</span>
+        <span class="k">for</span> <span class="n">pos</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">positions</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="n">node</span> <span class="o">=</span> <span class="n">children</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
+            <span class="c1"># Detach from this container</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Update children tuple</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">children</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">children</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">popped</span></div>
+
+
+<div class="viewcode-block" id="ContainerNode.build_flatmap">
+<a class="viewcode-back" href="../api.html#np_buffermap.ContainerNode.build_flatmap">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_flatmap</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">align</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">BufferAlign</span><span class="o">.</span><span class="n">AVX512</span><span class="p">,</span>
+        <span class="n">name_join</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">force_merge</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build, allocate, and return the initialized leaf values in preorder.</span>
+
+<span class="sd">        Convenience wrapper around ``build_bmap`` → ``allocate_bmap`` →</span>
+<span class="sd">        ``flat_inits``. See those functions for details.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">build_bmap</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">align</span><span class="o">=</span><span class="n">align</span><span class="p">,</span>
+            <span class="n">name_join</span><span class="o">=</span><span class="n">name_join</span><span class="p">,</span>
+            <span class="n">force_merge</span><span class="o">=</span><span class="n">force_merge</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">allocate_bmap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">align</span><span class="o">=</span><span class="n">align</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">flat_inits</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;|Node </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_short</span><span class="p">()</span><span class="si">}</span><span class="s2"> rule=</span><span class="si">{</span><span class="s1">&#39;S&#39;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">rule</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">BufferMap</span><span class="o">.</span><span class="n">SHARED</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;D&#39;</span><span class="si">}</span><span class="s2"> children=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">)</span><span class="si">}</span><span class="s2">|&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">RenderTree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="n">DoubleStyle</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">v</span></div>
+
+
+
+<span class="c1">### Helpers</span>
+<span class="n">use_other</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_chkfalign</span><span class="p">(</span><span class="n">fshape</span><span class="p">,</span> <span class="n">forder</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">align</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Decide whether to reuse an Array spec&#39;s aligned-leading-dimension.</span>
+
+<span class="sd">    Returns ``True`` when the requested ``shape``/``order`` match the base</span>
+<span class="sd">    spec (or are ``None``/unspecified) **and** the ``align`` parameter was not</span>
+<span class="sd">    explicitly provided (``use_other`` sentinel). Otherwise, the caller is</span>
+<span class="sd">    signaling intent to change layout, so the previous alignment is dropped.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># change this later so that if it&#39;s reversed dimensions in forder != order we keep align</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">align</span> <span class="ow">is</span> <span class="n">use_other</span>
+        <span class="ow">and</span> <span class="p">(</span><span class="n">shape</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">fshape</span> <span class="o">==</span> <span class="n">shape</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="p">(</span><span class="n">order</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">forder</span> <span class="o">==</span> <span class="n">order</span><span class="p">)</span>
+    <span class="p">)</span>
+
+
+<span class="c1"># ValueNode</span>
+<div class="viewcode-block" id="v_spec">
+<a class="viewcode-back" href="../api.html#np_buffermap.v_spec">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">v_spec</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrap a literal value in a :class:`ValueNode` that doesn&#39;t use buffer</span>
+<span class="sd">    bytes.</span>
+
+<span class="sd">    The value participates in preorder flattening alongside arrays and is</span>
+<span class="sd">    returned by ``flat_inits`` in position order.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">ValueNode</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># ArrayNode</span>
+<div class="viewcode-block" id="ar_spec">
+<a class="viewcode-back" href="../api.html#np_buffermap.ar_spec">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">ar_spec</span><span class="p">(</span>
+    <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="n">init_op</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">align_ldim</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArrayNode</span><span class="p">:</span>  <span class="c1"># noqa: D401</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Define an :class:`ArrayNode` with optional aligned-leading-dimension.</span>
+
+<span class="sd">    ``align_ldim`` pads the leading dimension (last in C order, first in F)</span>
+<span class="sd">    to a multiple of ``align_ldim // dtype.itemsize`` elements; the backing</span>
+<span class="sd">    shape is stored in ``bshape`` while the exposed logical shape remains</span>
+<span class="sd">    ``shape``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">ArrayNode</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">init_op</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">align_ldim</span><span class="o">=</span><span class="n">align_ldim</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># @cache</span>
+<div class="viewcode-block" id="f_arspec_i">
+<a class="viewcode-back" href="../api.html#np_buffermap.f_arspec_i">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">f_arspec_i</span><span class="p">(</span>
+    <span class="n">shape</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">init_op</span><span class="o">=</span><span class="n">use_other</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">align_ldim</span><span class="o">=</span><span class="n">use_other</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">callable</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a partially-applied constructor for :func:`f_arspec`.</span>
+
+<span class="sd">    Any field left as ``None``/``use_other`` will inherit from the base spec</span>
+<span class="sd">    supplied at call-time.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sshape</span><span class="p">,</span> <span class="n">ddtype</span><span class="p">,</span> <span class="n">oorder</span><span class="p">,</span> <span class="n">iinit_op</span><span class="p">,</span> <span class="n">nname</span><span class="p">,</span> <span class="n">aalign_ldim</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">shape</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">,</span>
+        <span class="n">order</span><span class="p">,</span>
+        <span class="n">init_op</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">,</span>
+        <span class="n">align_ldim</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">partial</span><span class="p">(</span>
+        <span class="n">f_arspec</span><span class="p">,</span>
+        <span class="n">shape</span><span class="o">=</span><span class="n">sshape</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">ddtype</span><span class="p">,</span>
+        <span class="n">order</span><span class="o">=</span><span class="n">oorder</span><span class="p">,</span>
+        <span class="n">init_op</span><span class="o">=</span><span class="n">iinit_op</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">nname</span><span class="p">,</span>
+        <span class="n">align_ldim</span><span class="o">=</span><span class="n">aalign_ldim</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="f_arspec">
+<a class="viewcode-back" href="../api.html#np_buffermap.f_arspec">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">f_arspec</span><span class="p">(</span>
+    <span class="n">arspec</span><span class="p">:</span> <span class="n">ArrayNode</span><span class="p">,</span>
+    <span class="n">shape</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">init_op</span><span class="o">=</span><span class="n">use_other</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">align_ldim</span><span class="o">=</span><span class="n">use_other</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArrayNode</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Clone an :class:`ArrayNode` spec, overriding selected fields.</span>
+
+<span class="sd">    ``align_ldim`` is inherited only if ``shape`` and ``order`` are unchanged</span>
+<span class="sd">    and ``align_ldim`` wasn&#39;t explicitly provided (see ``_chkfalign``).</span>
+<span class="sd">    Passing ``init_op=None`` explicitly disables the original initializer.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">rs</span> <span class="o">=</span> <span class="n">arspec</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">ArrayNode</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`f_arspec` only takes ArrayNode for `arspec`.&quot;</span><span class="p">)</span>
+    <span class="n">spc_align</span> <span class="o">=</span> <span class="n">_chkfalign</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">rs</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">align_ldim</span><span class="p">)</span>
+    <span class="n">align_ldim</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">align_ldim</span> <span class="ow">is</span> <span class="n">use_other</span> <span class="k">else</span> <span class="n">align_ldim</span>
+    <span class="n">sshape</span><span class="p">,</span> <span class="n">ddtype</span><span class="p">,</span> <span class="n">oorder</span><span class="p">,</span> <span class="n">iinit_op</span><span class="p">,</span> <span class="n">aalign_ldim</span><span class="p">,</span> <span class="n">nname</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">rs</span><span class="o">.</span><span class="n">shape</span> <span class="k">if</span> <span class="n">shape</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">shape</span><span class="p">,</span>
+        <span class="n">rs</span><span class="o">.</span><span class="n">dtype</span> <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">dtype</span><span class="p">,</span>
+        <span class="n">rs</span><span class="o">.</span><span class="n">order</span> <span class="k">if</span> <span class="n">order</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">order</span><span class="p">,</span>
+        <span class="n">rs</span><span class="o">.</span><span class="n">init_op</span> <span class="k">if</span> <span class="n">init_op</span> <span class="ow">is</span> <span class="n">use_other</span> <span class="k">else</span> <span class="n">init_op</span><span class="p">,</span>
+        <span class="n">rs</span><span class="o">.</span><span class="n">bshape</span> <span class="k">if</span> <span class="n">spc_align</span> <span class="k">else</span> <span class="n">align_ldim</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">ar_spec</span><span class="p">(</span><span class="n">sshape</span><span class="p">,</span> <span class="n">ddtype</span><span class="p">,</span> <span class="n">oorder</span><span class="p">,</span> <span class="n">iinit_op</span><span class="p">,</span> <span class="n">nname</span><span class="p">,</span> <span class="n">aalign_ldim</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="array_arspec">
+<a class="viewcode-back" href="../api.html#np_buffermap.array_arspec">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">array_arspec</span><span class="p">(</span>
+    <span class="n">arr</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">shape</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">init_op</span><span class="o">=</span><span class="n">use_other</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">align_ldim</span><span class="o">=</span><span class="n">use_other</span><span class="p">,</span>
+    <span class="n">_aldim_def</span><span class="o">=</span><span class="n">BufferAlign</span><span class="o">.</span><span class="n">AVX512</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArrayNode</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create an Array spec from an existing ndarray, preserving layout.</span>
+
+<span class="sd">    Detects C/F/&quot;aligned&quot; order via strides. If requested order or shape differ</span>
+<span class="sd">    and ``align_ldim`` wasn&#39;t provided, alignment is dropped to avoid slicing</span>
+<span class="sd">    mismatches. By default, the original array is used as ``init_op``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">torder</span> <span class="o">=</span> <span class="n">_gao</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+    <span class="n">nr</span> <span class="o">=</span> <span class="n">order</span> <span class="o">==</span> <span class="s2">&quot;A&quot;</span> <span class="ow">or</span> <span class="n">order</span> <span class="ow">is</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">torder</span> <span class="o">==</span> <span class="s2">&quot;A&quot;</span><span class="p">:</span>
+        <span class="n">torder</span><span class="p">,</span> <span class="n">bshape</span> <span class="o">=</span> <span class="n">_sao</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">nr</span> <span class="ow">or</span> <span class="n">order</span> <span class="o">==</span> <span class="n">torder</span><span class="p">)</span> <span class="ow">and</span> <span class="n">align_ldim</span> <span class="ow">is</span> <span class="n">use_other</span><span class="p">:</span>
+            <span class="n">align_ldim</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">elif</span> <span class="n">align_ldim</span> <span class="ow">is</span> <span class="n">use_other</span><span class="p">:</span>
+        <span class="n">align_ldim</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">nr</span><span class="p">:</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="n">torder</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">shape</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">shape</span> <span class="o">==</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="ow">and</span> <span class="n">align_ldim</span> <span class="ow">is</span> <span class="n">use_other</span><span class="p">:</span>
+        <span class="n">align_ldim</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">align_ldim</span> <span class="ow">is</span> <span class="n">use_other</span><span class="p">:</span>
+        <span class="n">align_ldim</span> <span class="o">=</span> <span class="n">bshape</span>
+    <span class="k">return</span> <span class="n">ar_spec</span><span class="p">(</span>
+        <span class="n">arr</span><span class="o">.</span><span class="n">shape</span> <span class="k">if</span> <span class="n">shape</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">shape</span><span class="p">,</span>
+        <span class="n">arr</span><span class="o">.</span><span class="n">dtype</span> <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">dtype</span><span class="p">,</span>
+        <span class="n">order</span><span class="p">,</span>
+        <span class="n">arr</span> <span class="k">if</span> <span class="n">init_op</span> <span class="ow">is</span> <span class="n">use_other</span> <span class="k">else</span> <span class="n">init_op</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">,</span>
+        <span class="n">align_ldim</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="ft_arspec">
+<a class="viewcode-back" href="../api.html#np_buffermap.ft_arspec">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">ft_arspec</span><span class="p">(</span>
+    <span class="n">arspec</span><span class="p">:</span> <span class="n">ArrayNode</span><span class="p">,</span>
+    <span class="n">shape</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">init_op</span><span class="o">=</span><span class="n">use_other</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">align_ldim</span><span class="o">=</span><span class="n">use_other</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArrayNode</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a **transposed** Array spec without changing memory layout.</span>
+
+<span class="sd">    Swaps C↔F logical order, flips shapes/``bshape``, and carries over</span>
+<span class="sd">    ``init_op`` (transposed if ndarray, or via a wrapper if callable).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">rs</span> <span class="o">=</span> <span class="n">arspec</span>
+    <span class="n">rop</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">init_op</span>
+    <span class="n">top</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">rop</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">init_op</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
+        <span class="k">else</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">ar</span><span class="p">:</span> <span class="n">rop</span><span class="p">(</span><span class="n">ar</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">rop</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="n">rop</span>
+    <span class="p">)</span>
+    <span class="n">tspec</span> <span class="o">=</span> <span class="n">ar_spec</span><span class="p">(</span>
+        <span class="n">rs</span><span class="o">.</span><span class="n">shape</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+        <span class="n">rs</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span> <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">order</span> <span class="o">!=</span> <span class="s2">&quot;C&quot;</span> <span class="k">else</span> <span class="s2">&quot;F&quot;</span><span class="p">,</span>
+        <span class="n">top</span><span class="p">,</span>
+        <span class="n">rs</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">rs</span><span class="o">.</span><span class="n">bshape</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">f_arspec</span><span class="p">(</span>
+        <span class="n">tspec</span><span class="p">,</span>
+        <span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
+        <span class="n">init_op</span><span class="o">=</span><span class="n">init_op</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">align_ldim</span><span class="o">=</span><span class="n">align_ldim</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="c1"># ContainerNode</span>
+
+
+<div class="viewcode-block" id="sb_node">
+<a class="viewcode-back" href="../api.html#np_buffermap.sb_node">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">sb_node</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">no_merge</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContainerNode</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a shared-region :class:`ContainerNode` (children overlay</span>
+<span class="sd">    memory).&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">ContainerNode</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">rule</span><span class="o">=</span><span class="n">BufferMap</span><span class="o">.</span><span class="n">SHARED</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">no_merge</span><span class="o">=</span><span class="n">no_merge</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="db_node">
+<a class="viewcode-back" href="../api.html#np_buffermap.db_node">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">db_node</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">no_merge</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">no_align</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContainerNode</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a distinct-region :class:`ContainerNode` (children are</span>
+<span class="sd">    concatenated).</span>
+
+<span class="sd">    ``no_align=True`` disables per-child alignment so the concatenation can</span>
+<span class="sd">    exactly match an external memory layout.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">ContainerNode</span><span class="p">(</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">rule</span><span class="o">=</span><span class="n">BufferMap</span><span class="o">.</span><span class="n">DISTINCT</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">no_merge</span><span class="o">=</span><span class="n">no_merge</span><span class="p">,</span> <span class="n">no_align</span><span class="o">=</span><span class="n">no_align</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="oneshot_args">
+<a class="viewcode-back" href="../api.html#np_buffermap.oneshot_args">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">oneshot_args</span><span class="p">(</span><span class="n">bmap</span><span class="p">:</span> <span class="n">BaseNode</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build → allocate → return initialized leaf values in preorder.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">flat_inits</span><span class="p">(</span><span class="n">allocate_bmap</span><span class="p">(</span><span class="n">build_bmap</span><span class="p">(</span><span class="n">bmap</span><span class="p">)))</span></div>
+
+
+
+<div class="viewcode-block" id="flat_inits">
+<a class="viewcode-back" href="../api.html#np_buffermap.flat_inits">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">flat_inits</span><span class="p">(</span><span class="n">bmap</span><span class="p">:</span> <span class="n">BaseNode</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return initialized values for all leaf items in preorder.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">items_init</span><span class="p">(</span><span class="n">flatten_items</span><span class="p">(</span><span class="n">bmap</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="flatten_items">
+<a class="viewcode-back" href="../api.html#np_buffermap.flatten_items">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">flatten_items</span><span class="p">(</span><span class="n">bmap</span><span class="p">:</span> <span class="n">BaseNode</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ItemNodeT</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return all leaf ``ItemNodeT`` instances in preorder.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">n</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">PreOrderIter</span><span class="p">(</span><span class="n">bmap</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">ItemNodeT</span><span class="p">)),)</span></div>
+
+
+
+<div class="viewcode-block" id="items_init">
+<a class="viewcode-back" href="../api.html#np_buffermap.items_init">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">items_init</span><span class="p">(</span><span class="n">items</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ItemNodeT</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract ``.value`` from each item leaf in order (arrays/values).&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">n</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">items</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">ItemNodeT</span><span class="p">)),)</span></div>
+
+
+
+<span class="c1"># Build Buffer Offset Tree and Metadata.</span>
+<div class="viewcode-block" id="build_bmap">
+<a class="viewcode-back" href="../api.html#np_buffermap.build_bmap">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_bmap</span><span class="p">(</span>
+    <span class="n">bmap</span><span class="p">:</span> <span class="n">ContainerNode</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">align</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">BufferAlign</span><span class="o">.</span><span class="n">AVX512</span><span class="p">,</span>
+    <span class="n">name_join</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">force_merge</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContainerNode</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run reduction → size/offset propagation on a buffer-map tree.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    align : int</span>
+<span class="sd">        Global alignment used during size rounding and offset assignment.</span>
+<span class="sd">    name_join : bool</span>
+<span class="sd">        When merging like-ruled containers, prefix child labels with the parent</span>
+<span class="sd">        label to preserve uniqueness.</span>
+<span class="sd">    force_merge : bool</span>
+<span class="sd">        Merge even if either side has ``no_merge=True``.</span>
+<span class="sd">    verbose : bool</span>
+<span class="sd">        If true, run ``check_bmap`` to report duplicate labels.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">reduce_bmap</span><span class="p">(</span><span class="n">bmap</span><span class="p">,</span> <span class="n">name_join</span><span class="o">=</span><span class="n">name_join</span><span class="p">,</span> <span class="n">force_merge</span><span class="o">=</span><span class="n">force_merge</span><span class="p">)</span>
+    <span class="n">gen_buffer_specs</span><span class="p">(</span><span class="n">bmap</span><span class="p">,</span> <span class="n">align</span><span class="o">=</span><span class="n">align</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="n">check_bmap</span><span class="p">(</span><span class="n">bmap</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">bmap</span></div>
+
+
+
+<span class="c1"># Allocate and assign buffers for buffer map/tree, only for the arrays.</span>
+<div class="viewcode-block" id="allocate_bmap">
+<a class="viewcode-back" href="../api.html#np_buffermap.allocate_bmap">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">allocate_bmap</span><span class="p">(</span>
+    <span class="n">bmap</span><span class="p">:</span> <span class="n">ContainerNode</span><span class="p">,</span> <span class="n">align</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">BufferAlign</span><span class="o">.</span><span class="n">AVX512</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContainerNode</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Allocate a single aligned top buffer and map arrays to views.</span>
+
+<span class="sd">    Requires ``build_bmap`` to have populated sizes/offsets.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">bmap</span><span class="o">.</span><span class="n">nbytes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Call build_bmap() before allocate_bmap().&quot;</span><span class="p">)</span>
+    <span class="n">top</span> <span class="o">=</span> <span class="n">aligned_buffer</span><span class="p">(</span><span class="n">bmap</span><span class="o">.</span><span class="n">nbytes</span><span class="p">,</span> <span class="n">align</span><span class="o">=</span><span class="n">align</span><span class="p">)</span>
+    <span class="n">bmap</span><span class="o">.</span><span class="n">buffer</span> <span class="o">=</span> <span class="n">top</span>
+    <span class="n">_alloc</span><span class="p">(</span><span class="n">bmap</span><span class="p">,</span> <span class="n">top</span><span class="p">,</span> <span class="n">align</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">bmap</span></div>
+
+
+
+<span class="c1"># other</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_gao</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get array memory order: &#39;C&#39;, &#39;F&#39;, or &#39;A&#39; (aligned/other).&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">flags</span><span class="p">[</span><span class="s2">&quot;C_CONTIGUOUS&quot;</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="s2">&quot;C&quot;</span>
+    <span class="k">elif</span> <span class="n">arr</span><span class="o">.</span><span class="n">flags</span><span class="p">[</span><span class="s2">&quot;F_CONTIGUOUS&quot;</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="s2">&quot;F&quot;</span>
+    <span class="k">return</span> <span class="s2">&quot;A&quot;</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sao</span><span class="p">(</span><span class="n">arr</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Infer (order, backing-shape) from strides for aligned buffers.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    order : Literal[&#39;C&#39;,&#39;F&#39;]</span>
+<span class="sd">    bshape : tuple[int, ...]</span>
+<span class="sd">        Backing shape with an expanded leading dimension computed from strides.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">s0</span><span class="p">,</span> <span class="n">sn</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">strides</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">abs</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">strides</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">i</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">od</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">s0</span> <span class="o">&gt;=</span> <span class="n">sn</span> <span class="k">else</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;F&quot;</span><span class="p">)</span>
+    <span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">strides</span><span class="p">[</span><span class="n">o</span><span class="p">])</span> <span class="o">//</span> <span class="nb">abs</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">strides</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">od</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># 1) Reduction (merge adjacent identical‑rule containers)</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_merge_child_into_parent</span><span class="p">(</span>
+    <span class="n">parent</span><span class="p">:</span> <span class="n">ContainerNode</span><span class="p">,</span> <span class="n">child</span><span class="p">:</span> <span class="n">ContainerNode</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name_join</span><span class="p">:</span> <span class="nb">bool</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Move ``child``&#39;s children into ``parent`` (same rule), optionally</span>
+<span class="sd">    renaming.</span>
+
+<span class="sd">    When ``name_join`` is true and both have labels, grand-children labels are</span>
+<span class="sd">    prefixed with the parent&#39;s label to preserve context and reduce collisions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">name_join</span> <span class="ow">and</span> <span class="n">parent</span><span class="o">.</span><span class="n">label</span> <span class="ow">and</span> <span class="n">child</span><span class="o">.</span><span class="n">label</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">grand</span> <span class="ow">in</span> <span class="n">child</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+            <span class="n">grand</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">parent</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">grand</span><span class="o">.</span><span class="n">label</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">grand</span><span class="o">.</span><span class="n">label</span> <span class="k">else</span> <span class="n">parent</span><span class="o">.</span><span class="n">label</span>
+            <span class="p">)</span>
+    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">child</span><span class="o">.</span><span class="n">children</span><span class="p">):</span>
+        <span class="n">g</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">parent</span>
+    <span class="n">child</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="reduce_bmap">
+<a class="viewcode-back" href="../api.html#np_buffermap.reduce_bmap">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">reduce_bmap</span><span class="p">(</span>
+    <span class="n">bmap</span><span class="p">:</span> <span class="n">ContainerNode</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name_join</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">force_merge</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContainerNode</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge adjacent containers with the same rule.</span>
+
+<span class="sd">    If ``force_merge`` is False, a ``no_merge=True`` on either container blocks</span>
+<span class="sd">    the merge; otherwise it is ignored.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">PreOrderIter</span><span class="p">(</span><span class="n">bmap</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ContainerNode</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="n">ContainerNode</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">rule</span> <span class="o">==</span> <span class="n">ch</span><span class="o">.</span><span class="n">rule</span>
+                <span class="ow">and</span> <span class="p">(</span><span class="n">force_merge</span> <span class="ow">or</span> <span class="p">(</span><span class="ow">not</span> <span class="n">node</span><span class="o">.</span><span class="n">no_merge</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">ch</span><span class="o">.</span><span class="n">no_merge</span><span class="p">))</span>
+            <span class="p">):</span>
+                <span class="n">_merge_child_into_parent</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ch</span><span class="p">,</span> <span class="n">name_join</span><span class="o">=</span><span class="n">name_join</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">bmap</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># 2) Size propagation &amp; offset assignment w/ alignment</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_compute_nbytes</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">BaseNode</span><span class="p">,</span> <span class="n">align</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">BufferAlign</span><span class="o">.</span><span class="n">AVX512</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute subtree byte sizes with alignment rounding.</span>
+
+<span class="sd">    - ``ValueNode`` contributes 0.</span>
+<span class="sd">    - ``ArrayNode`` contributes its exact size (no rounding here).</span>
+<span class="sd">    - ``ContainerNode`` combines child sizes per rule; ``no_align`` on</span>
+<span class="sd">      DISTINCT containers disables per-child rounding.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ValueNode</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ArrayNode</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">node</span><span class="o">.</span><span class="n">nbytes</span>
+    <span class="c1"># compute child sizes</span>
+    <span class="n">sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">_compute_nbytes</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="n">align</span><span class="p">)</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">rule</span> <span class="o">==</span> <span class="n">BufferMap</span><span class="o">.</span><span class="n">SHARED</span><span class="p">:</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">sizes</span><span class="p">)</span> <span class="k">if</span> <span class="n">sizes</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="c1"># round up shared region</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">nbytes</span> <span class="o">=</span> <span class="p">((</span><span class="n">raw</span> <span class="o">+</span> <span class="n">align</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">align</span><span class="p">)</span> <span class="o">*</span> <span class="n">align</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># distinct: sum rounded child regions</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">no_align</span><span class="p">:</span>  <span class="c1"># if no_align then nbytes will be rounded to match whole container alignment, but not children alignment. Which means that arraynodes that must be aligned contiguously can be forced to, if they represent the memory of another array exactly.</span>
+            <span class="n">ln</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">size</span> <span class="k">for</span> <span class="n">size</span> <span class="ow">in</span> <span class="n">sizes</span><span class="p">)</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">nbytes</span> <span class="o">=</span> <span class="p">((</span><span class="n">ln</span> <span class="o">+</span> <span class="n">align</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">align</span><span class="p">)</span> <span class="o">*</span> <span class="n">align</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">nbytes</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(((</span><span class="n">size</span> <span class="o">+</span> <span class="n">align</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">align</span><span class="p">)</span> <span class="o">*</span> <span class="n">align</span> <span class="k">for</span> <span class="n">size</span> <span class="ow">in</span> <span class="n">sizes</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">node</span><span class="o">.</span><span class="n">nbytes</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_assign_offsets</span><span class="p">(</span>
+    <span class="n">node</span><span class="p">:</span> <span class="n">BaseNode</span><span class="p">,</span> <span class="n">base</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">align</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">BufferAlign</span><span class="o">.</span><span class="n">AVX512</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assign offsets in a single pass according to container rules.</span>
+
+<span class="sd">    SHARED writes the same ``base`` to all children; DISTINCT advances by each</span>
+<span class="sd">    child&#39;s (rounded) size unless ``no_align=True``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">node</span><span class="o">.</span><span class="n">ofs</span> <span class="o">=</span> <span class="n">base</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ArrayNode</span><span class="p">):</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">ofs</span> <span class="o">=</span> <span class="n">base</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ContainerNode</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">rule</span> <span class="o">==</span> <span class="n">BufferMap</span><span class="o">.</span><span class="n">SHARED</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+                <span class="n">_assign_offsets</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">align</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cur</span> <span class="o">=</span> <span class="n">base</span>
+            <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+                <span class="n">_assign_offsets</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="n">cur</span><span class="p">,</span> <span class="n">align</span><span class="p">)</span>
+                <span class="n">size</span> <span class="o">=</span> <span class="n">ch</span><span class="o">.</span><span class="n">nbytes</span> <span class="ow">or</span> <span class="mi">0</span>
+                <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">no_align</span><span class="p">:</span>
+                    <span class="n">cur</span> <span class="o">+=</span> <span class="n">size</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">cur</span> <span class="o">+=</span> <span class="p">((</span><span class="n">size</span> <span class="o">+</span> <span class="n">align</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">align</span><span class="p">)</span> <span class="o">*</span> <span class="n">align</span>
+
+
+<div class="viewcode-block" id="gen_buffer_specs">
+<a class="viewcode-back" href="../api.html#np_buffermap.gen_buffer_specs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gen_buffer_specs</span><span class="p">(</span>
+    <span class="n">bmap</span><span class="p">:</span> <span class="n">ContainerNode</span><span class="p">,</span> <span class="n">align</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">BufferAlign</span><span class="o">.</span><span class="n">AVX512</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContainerNode</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Populate ``nbytes`` and ``ofs`` for the entire tree (no allocation).&quot;&quot;&quot;</span>
+    <span class="n">_compute_nbytes</span><span class="p">(</span><span class="n">bmap</span><span class="p">,</span> <span class="n">align</span><span class="p">)</span>
+    <span class="n">_assign_offsets</span><span class="p">(</span><span class="n">bmap</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">align</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">bmap</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># 3) Sanity check for duplicate labels</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<div class="viewcode-block" id="check_bmap">
+<a class="viewcode-back" href="../api.html#np_buffermap.check_bmap">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_bmap</span><span class="p">(</span><span class="n">bmap</span><span class="p">:</span> <span class="n">ContainerNode</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print duplicate labels (diagnostic).&quot;&quot;&quot;</span>
+    <span class="n">seen</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">BaseNode</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">PreOrderIter</span><span class="p">(</span><span class="n">bmap</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">n</span><span class="o">.</span><span class="n">label</span><span class="p">:</span>
+            <span class="n">seen</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">n</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">dup</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">seen</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">dup</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Duplicate labels:&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">dup</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> × </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># 5) Allocation</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_alloc</span><span class="p">(</span>
+    <span class="n">node</span><span class="p">:</span> <span class="n">BaseNode</span><span class="p">,</span> <span class="n">root_buf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">align</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">BufferAlign</span><span class="o">.</span><span class="n">AVX512</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Attach container slices and materialize ``ArrayNode`` views</span>
+<span class="sd">    recursively.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ValueNode</span><span class="p">):</span>
+        <span class="k">return</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ArrayNode</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">ofs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">node</span><span class="o">.</span><span class="n">nbytes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Node must have ofs/nbytes (run build_bmap first)&quot;</span><span class="p">)</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">buffer</span> <span class="o">=</span> <span class="n">root_buf</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">ofs</span> <span class="p">:</span> <span class="n">node</span><span class="o">.</span><span class="n">ofs</span> <span class="o">+</span> <span class="n">node</span><span class="o">.</span><span class="n">nbytes</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+            <span class="n">_alloc</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="n">root_buf</span><span class="p">,</span> <span class="n">align</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">ofs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;ArrayNode must have ofs assigned (run build_bmap first)&quot;</span><span class="p">)</span>
+    <span class="n">node</span><span class="o">.</span><span class="n">mk_array</span><span class="p">(</span><span class="n">root_buf</span><span class="p">)</span>
+
+
+<span class="c1"># 6) Query helpers</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_walk_index</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">BaseNode</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">BaseNode</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Follow a child-index path from ``node`` and return the target node.&quot;&quot;&quot;</span>
+    <span class="n">cur</span> <span class="o">=</span> <span class="n">node</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">idx</span><span class="p">:</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">children</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+    <span class="k">return</span> <span class="n">cur</span>
+
+
+<div class="viewcode-block" id="bmap_get">
+<a class="viewcode-back" href="../api.html#np_buffermap.bmap_get">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bmap_get</span><span class="p">(</span><span class="n">bid</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="nb">str</span><span class="p">,</span> <span class="n">BaseNode</span><span class="p">],</span> <span class="n">bmap</span><span class="p">:</span> <span class="n">ContainerNode</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseNode</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve a node reference by path, label, or pass-through instance.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bid</span><span class="p">,</span> <span class="n">BaseNode</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">bid</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bid</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="n">_walk_index</span><span class="p">(</span><span class="n">bmap</span><span class="p">,</span> <span class="n">bid</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bid</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">PreOrderIter</span><span class="p">(</span><span class="n">bmap</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">n</span><span class="o">.</span><span class="n">label</span> <span class="o">==</span> <span class="n">bid</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">n</span>
+        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="n">bid</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;bid must be path/label/node&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="dtype_abbr">
+<a class="viewcode-back" href="../api.html#np_buffermap.dtype_abbr">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">dtype_abbr</span><span class="p">(</span><span class="n">dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a short ``kind_bits`` abbreviation (e.g., ``&#39;f_64&#39;``,</span>
+<span class="sd">    ``&#39;i_32&#39;``).&quot;&quot;&quot;</span>
+    <span class="n">kind</span> <span class="o">=</span> <span class="n">dtype</span><span class="o">.</span><span class="n">kind</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>  <span class="c1"># e.g. &#39;i&#39;, &#39;u&#39;, &#39;f&#39;, &#39;c&#39;, &#39;b&#39;, &#39;M&#39;, &#39;m&#39;, …</span>
+    <span class="n">bits</span> <span class="o">=</span> <span class="n">dtype</span><span class="o">.</span><span class="n">itemsize</span> <span class="o">*</span> <span class="mi">8</span>  <span class="c1"># itemsize is in bytes → *8 for bits</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">bits</span><span class="si">}</span><span class="s2">&quot;</span></div>
+
+
+
+<span class="c1"># 7) DOT export</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_dot_node_attr</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">BaseNode</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">with_offsets</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate DOT attributes with name inside node and other info as</span>
+<span class="sd">    external.&quot;&quot;&quot;</span>
+    <span class="c1"># Secondary info for external label (xlabel)</span>
+    <span class="n">info_parts</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="p">:</span>
+        <span class="n">info_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;- </span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2"> -&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ArrayNode</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">align_ldim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">info_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">vshape</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">dtype_abbr</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">info_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">dtype_abbr</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">col</span> <span class="o">=</span> <span class="s1">&#39;color=&quot;lime&quot;&#39;</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ValueNode</span><span class="p">):</span>
+        <span class="n">vt</span> <span class="o">=</span> <span class="nb">repr</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="n">qrg</span> <span class="o">=</span> <span class="mi">18</span>
+        <span class="n">vt</span> <span class="o">=</span> <span class="n">vt</span><span class="p">[:</span><span class="n">qrg</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">qrg</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">vt</span><span class="p">):</span>
+            <span class="n">vt</span> <span class="o">=</span> <span class="n">vt</span><span class="p">[:</span><span class="mi">10</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;...&quot;</span>
+        <span class="n">info_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vt</span><span class="p">)</span>
+        <span class="n">col</span> <span class="o">=</span> <span class="s1">&#39;color=&quot;pink&quot;&#39;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">rule</span> <span class="o">==</span> <span class="n">BufferMap</span><span class="o">.</span><span class="n">DISTINCT</span><span class="p">:</span>
+            <span class="n">col</span> <span class="o">=</span> <span class="s1">&#39;color=&quot;orange&quot;&#39;</span>
+        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">rule</span> <span class="o">==</span> <span class="n">BufferMap</span><span class="o">.</span><span class="n">SHARED</span><span class="p">:</span>
+            <span class="n">col</span> <span class="o">=</span> <span class="s1">&#39;color=&quot;cyan&quot;&#39;</span>
+    <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">nbytes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">info_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">nbytes</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">1024</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> KB&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">with_offsets</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">ofs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">info_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ofs: [</span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">ofs</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">node</span><span class="o">.</span><span class="n">ofs</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">nbytes</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+    <span class="c1"># Build attribute list</span>
+    <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">info_parts</span><span class="p">)</span>
+    <span class="n">parts</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s1">&#39;label=&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s1">&quot;&#39;</span><span class="p">,</span> <span class="s1">&#39;shape=&quot;circle&quot;&#39;</span><span class="p">,</span> <span class="s1">&#39;labelloc=&quot;c&quot;&#39;</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span>
+    <span class="c1"># parts.append(&#39;style=&quot;filled&quot;&#39;)</span>
+    <span class="c1"># parts.append(&#39;fillcolor=&quot;white&quot;&#39;)</span>
+    <span class="k">return</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="bmap_todot">
+<a class="viewcode-back" href="../api.html#np_buffermap.bmap_todot">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bmap_todot</span><span class="p">(</span><span class="n">bmap</span><span class="p">:</span> <span class="n">ContainerNode</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">with_offsets</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Serialize the tree to Graphviz DOT via</span>
+<span class="sd">    ``anytree.exporter.DotExporter``.&quot;&quot;&quot;</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">DotExporter</span><span class="p">(</span>
+        <span class="n">bmap</span><span class="p">,</span>
+        <span class="n">nodenamefunc</span><span class="o">=</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;n_</span><span class="si">{</span><span class="n">n</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="n">nodeattrfunc</span><span class="o">=</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">_dot_node_attr</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">with_offsets</span><span class="o">=</span><span class="n">with_offsets</span><span class="p">),</span>
+    <span class="p">):</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># 8) PyVis visualiser</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_bmap_pyvis</span><span class="p">(</span><span class="n">src</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ContainerNode</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">with_offsets</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Internal helper that returns a configured ``pyvis.Network`` graph.</span>
+
+<span class="sd">    Accepts either a DOT string or a ``ContainerNode``; when given a node,</span>
+<span class="sd">    converts via ``bmap_todot`` then builds a NetworkX graph using ``pydot``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">pyvis.network</span><span class="w"> </span><span class="kn">import</span> <span class="n">Network</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">networkx</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nx</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">pydot</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;pyvis, networkx, pydot required for bmap_pyvis()&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">dot_data</span> <span class="o">=</span> <span class="n">src</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">ContainerNode</span><span class="p">):</span>
+        <span class="n">dot_data</span> <span class="o">=</span> <span class="n">bmap_todot</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">with_offsets</span><span class="o">=</span><span class="n">with_offsets</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;src must be DOT str or ContainerNode&quot;</span><span class="p">)</span>
+    <span class="n">graphs</span> <span class="o">=</span> <span class="n">pydot</span><span class="o">.</span><span class="n">graph_from_dot_data</span><span class="p">(</span><span class="n">dot_data</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">graphs</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Failed to parse DOT data&quot;</span><span class="p">)</span>
+    <span class="n">pgraph</span> <span class="o">=</span> <span class="n">graphs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">g_nx</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">drawing</span><span class="o">.</span><span class="n">nx_pydot</span><span class="o">.</span><span class="n">from_pydot</span><span class="p">(</span><span class="n">pgraph</span><span class="p">)</span>
+    <span class="n">net</span> <span class="o">=</span> <span class="n">Network</span><span class="p">(</span><span class="n">directed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">net</span><span class="o">.</span><span class="n">from_nx</span><span class="p">(</span><span class="n">g_nx</span><span class="p">)</span>
+    <span class="c1"># Strip embedded quotes from labels and colors</span>
+    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">net</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+        <span class="c1"># Clean label</span>
+        <span class="n">lbl</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lbl</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">lbl</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">lbl</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">):</span>
+            <span class="n">node</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lbl</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">)</span>
+        <span class="c1"># Clean color</span>
+        <span class="n">col</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;color&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">col</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">col</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">):</span>
+            <span class="n">node</span><span class="p">[</span><span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">col</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">)</span>
+    <span class="n">net</span><span class="o">.</span><span class="n">set_options</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;{</span>
+<span class="s2">  &quot;layout&quot;: {&quot;hierarchical&quot;:{&quot;enabled&quot;:true,&quot;direction&quot;:&quot;UD&quot;,&quot;sortMethod&quot;:&quot;hubsize&quot;,&quot;blockShifting&quot;:true,&quot;edgeMinimization&quot;:true}},</span>
+<span class="s2">  &quot;physics&quot;:{&quot;enabled&quot;:true}</span>
+<span class="s2">}&quot;&quot;&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">net</span>
+
+
+<span class="c1"># 8) PyVis visualiser</span>
+<div class="viewcode-block" id="bmap_pyvis">
+<a class="viewcode-back" href="../api.html#np_buffermap.bmap_pyvis">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bmap_pyvis</span><span class="p">(</span><span class="n">src</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ContainerNode</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">with_offsets</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a PyVis interactive tree using a top-down layout and physics</span>
+<span class="sd">    enabled.&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">pyvis.network</span><span class="w"> </span><span class="kn">import</span> <span class="n">Network</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">networkx</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nx</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">pydot</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;pyvis, networkx, pydot required for bmap_pyvis()&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="c1"># Obtain DOT source and parse</span>
+    <span class="n">dot_data</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">src</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">bmap_todot</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">with_offsets</span><span class="o">=</span><span class="n">with_offsets</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">graphs</span> <span class="o">=</span> <span class="n">pydot</span><span class="o">.</span><span class="n">graph_from_dot_data</span><span class="p">(</span><span class="n">dot_data</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">graphs</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Failed to parse DOT data&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">graphs</span><span class="p">)</span>
+    <span class="n">pgraph</span> <span class="o">=</span> <span class="n">graphs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># Convert to NetworkX</span>
+    <span class="n">g_nx</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">drawing</span><span class="o">.</span><span class="n">nx_pydot</span><span class="o">.</span><span class="n">from_pydot</span><span class="p">(</span><span class="n">pgraph</span><span class="p">)</span>
+    <span class="c1"># Insert a blank white dummy sibling under the root container to anchor hubsize</span>
+    <span class="c1"># Determine root: if ContainerNode passed, use its name; else take first node</span>
+
+    <span class="n">nodes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">g_nx</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span>
+    <span class="n">root_id</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">nodes</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">dummy</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="c1"># add dummy node and edge</span>
+    <span class="k">if</span> <span class="n">dummy</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">g_nx</span><span class="p">:</span>
+        <span class="n">g_nx</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span>
+            <span class="n">dummy</span><span class="p">,</span>
+            <span class="n">label</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="n">shape</span><span class="o">=</span><span class="s2">&quot;circle&quot;</span><span class="p">,</span>
+            <span class="n">style</span><span class="o">=</span><span class="s2">&quot;filled&quot;</span><span class="p">,</span>
+            <span class="n">fillcolor</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span>
+            <span class="n">fixed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">succ</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">g_nx</span><span class="o">.</span><span class="n">successors</span><span class="p">(</span><span class="n">root_id</span><span class="p">))</span>
+    <span class="c1"># # Remove all existing root-&gt;* edges</span>
+    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">succ</span><span class="p">:</span>
+        <span class="n">g_nx</span><span class="o">.</span><span class="n">remove_edge</span><span class="p">(</span><span class="n">root_id</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+    <span class="c1"># Re-add with dummy first, then self-loop, then the rest</span>
+    <span class="n">new_order</span> <span class="o">=</span> <span class="p">[</span><span class="n">dummy</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">succ</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="n">dummy</span><span class="p">,</span> <span class="n">root_id</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">new_order</span><span class="p">:</span>
+        <span class="n">g_nx</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">root_id</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+    <span class="c1"># # No other graph modifications</span>
+
+    <span class="c1"># Build PyVis network</span>
+    <span class="n">net</span> <span class="o">=</span> <span class="n">Network</span><span class="p">(</span>
+        <span class="n">directed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">height</span><span class="o">=</span><span class="s2">&quot;1000px&quot;</span><span class="p">,</span>
+        <span class="n">width</span><span class="o">=</span><span class="s2">&quot;100%&quot;</span><span class="p">,</span>
+        <span class="n">bgcolor</span><span class="o">=</span><span class="s2">&quot;#111111&quot;</span><span class="p">,</span>
+        <span class="n">font_color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">net</span><span class="o">.</span><span class="n">from_nx</span><span class="p">(</span><span class="n">g_nx</span><span class="p">)</span>
+
+    <span class="c1"># Clean any embedded quotes</span>
+    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">net</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+        <span class="n">lbl</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lbl</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">lbl</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">lbl</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">):</span>
+            <span class="n">node</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lbl</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">)</span>
+        <span class="n">col</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;color&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">col</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">col</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">):</span>
+            <span class="n">node</span><span class="p">[</span><span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">col</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Top-down hierarchy, hubsize sort, physics on</span>
+    <span class="n">net</span><span class="o">.</span><span class="n">set_options</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;{</span>
+<span class="s2">      &quot;layout&quot;: {&quot;hierarchical&quot;:{&quot;enabled&quot;:true,&quot;direction&quot;:&quot;UD&quot;,&quot;sortMethod&quot;:&quot;hubsize&quot;,&quot;blockShifting&quot;:true,&quot;edgeMinimization&quot;:true}},</span>
+<span class="s2">      &quot;physics&quot;:{&quot;enabled&quot;:true, &quot;wind&quot;: { &quot;x&quot;: 0.0, &quot;y&quot;: 0 }}</span>
+<span class="s2">    }&quot;&quot;&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">net</span></div>
+
+
+
+<span class="c1"># 9) Static Graphviz render</span>
+<div class="viewcode-block" id="save_bmap_tree">
+<a class="viewcode-back" href="../api.html#np_buffermap.save_bmap_tree">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">save_bmap_tree</span><span class="p">(</span>
+    <span class="n">bmap</span><span class="p">:</span> <span class="n">ContainerNode</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;bmap_tree.png&quot;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">with_offsets</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Render the tree to a static image using Graphviz and return ``path``.&quot;&quot;&quot;</span>
+    <span class="n">DotExporter</span><span class="p">(</span>
+        <span class="n">bmap</span><span class="p">,</span>
+        <span class="n">nodenamefunc</span><span class="o">=</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">n</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+        <span class="n">nodeattrfunc</span><span class="o">=</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">_dot_node_attr</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">with_offsets</span><span class="o">=</span><span class="n">with_offsets</span><span class="p">),</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">to_picture</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">path</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Utility – cloning</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+
+<div class="viewcode-block" id="clone_bmap">
+<a class="viewcode-back" href="../api.html#np_buffermap.clone_bmap">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">clone_bmap</span><span class="p">(</span><span class="n">bmap</span><span class="p">:</span> <span class="n">ContainerNode</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Deep-clone an entire buffer-map tree (labels, sizes, offsets, etc.).&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">bmap</span><span class="p">)</span></div>
+
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, 
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    </body>
+</html>

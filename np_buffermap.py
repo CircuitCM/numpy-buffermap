@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from functools import cache
-
 """Numpy Buffer Map
 ===================
 
@@ -39,6 +37,8 @@ helpers (`flatten_items`, `flat_inits`) return leaves or initialized values in
 preorder.
 """
 
+from functools import cache
+
 from typing import Any, List, Sequence, Tuple, Union, Optional
 import itertools
 import copy
@@ -73,6 +73,7 @@ import aopt.utils.numba as nbu
 # Basic constants
 # ---------------------------------------------------------------------------
 
+
 class BufferMap:
     SHARED: int = 0
     DISTINCT: int = 1
@@ -80,6 +81,7 @@ class BufferMap:
 
 class BufferAlign:
     """Common buffer alignment sizes in bytes."""
+
     BYTE = 1  # 8‑bit
     WORD = 2  # 16‑bit
     DWORD = 4  # 32‑bit
@@ -94,7 +96,7 @@ class BufferAlign:
 from numba import typeof
 
 
-class NativeTypes():
+class NativeTypes:
     """Sizes of common primitive types across NumPy and Numba ecosystems.
 
     The attributes ending with ``b`` expose the **byte-size** of the type.
@@ -103,6 +105,7 @@ class NativeTypes():
     computing strides. Values are resolved at import-time from the active
     platform (e.g., pointer width via ``np.intp``) and Numba's typing layer.
     """
+
     POINTER = np.dtype(np.intp)  # system pointer size
     POINTERb = POINTER.itemsize
 
@@ -155,7 +158,7 @@ def aligned_buffer(n_bytes: int, align: int = BufferAlign.AVX512) -> np.ndarray:
     """
     raw = np.empty(n_bytes + align, dtype=np.uint8)
     offset = (-raw.ctypes.data) & (align - 1)
-    return raw[offset: offset + n_bytes]
+    return raw[offset : offset + n_bytes]
 
 
 class BaseNode(NodeMixin):
@@ -176,7 +179,11 @@ class BaseNode(NodeMixin):
         For arrays: not used directly; see ``ArrayNode.array``.
     """
 
-    def __init__(self, name: Optional[Union[str, int, float]] = None, no_merge: bool = False, ) -> None:
+    def __init__(
+        self,
+        name: Optional[Union[str, int, float]] = None,
+        no_merge: bool = False,
+    ) -> None:
         self.id: int = _IDGen.new_id()
         self.label: Optional[str] = str(name) if name is not None else None
         self.no_merge: bool = bool(no_merge)
@@ -207,7 +214,11 @@ class ValueNode(BaseNode):
     ``flatten_items`` and friends preserve order alongside arrays.
     """
 
-    def __init__(self, value, name: Optional[Union[str, int, float]] = None, ) -> None:
+    def __init__(
+        self,
+        value,
+        name: Optional[Union[str, int, float]] = None,
+    ) -> None:
         super().__init__(name=name, no_merge=True)
         self.value = value
 
@@ -233,9 +244,15 @@ class ArrayNode(BaseNode):
       that receives the newly created array for in-place initialization.
     """
 
-    def __init__(self, shape: Union[int, Sequence[int]] = (0,), dtype: np.dtype = np.float64, order: str = "C",
-                 init_op: Optional[Union[int, float, np.ndarray, callable]] = None, name: Optional[Union[str, int, float]] = None,
-                 align_ldim=None, ) -> None:
+    def __init__(
+        self,
+        shape: Union[int, Sequence[int]] = (0,),
+        dtype: np.dtype = np.float64,
+        order: str = "C",
+        init_op: Optional[Union[int, float, np.ndarray, callable]] = None,
+        name: Optional[Union[str, int, float]] = None,
+        align_ldim=None,
+    ) -> None:
         super().__init__(name=name, no_merge=True)
         self.shape: Tuple[int, ...]
         self.bshape: Tuple[int, ...]
@@ -252,7 +269,7 @@ class ArrayNode(BaseNode):
         elif align_ldim is not None:
             self.shape = s
             rsz = align_ldim // self.dtype.itemsize
-            if self.order == 'C':
+            if self.order == "C":
                 self.bshape = (*s[:-1], ((s[-1] + rsz - 1) // rsz) * rsz)
             else:
                 self.bshape = (((s[0] + rsz - 1) // rsz) * rsz, *s[1:])
@@ -281,7 +298,8 @@ class ArrayNode(BaseNode):
                 self.array[...] = self.init_op
 
     def mk_array(self, buffer: Optional[np.ndarray] = None) -> np.ndarray:
-        """Materialize ``self.array`` either standalone or as a view on ``buffer``.
+        """Materialize ``self.array`` either standalone or as a view on
+        ``buffer``.
 
         Cases
         -----
@@ -300,12 +318,21 @@ class ArrayNode(BaseNode):
             self.array = np.empty(self.shape, dtype=self.dtype, order=self.order)
         elif y := (buffer is not None):
             cnt = int(np.prod(self.bshape))
-            view = np.frombuffer(buffer, dtype=self.dtype, count=cnt, offset=0 if self.ofs is None else self.ofs)
+            view = np.frombuffer(
+                buffer,
+                dtype=self.dtype,
+                count=cnt,
+                offset=0 if self.ofs is None else self.ofs,
+            )
             view = view.reshape(self.bshape, order=self.order)
             self.array = view
         if y and self.align_ldim is not None:
             self.barray = self.array
-            self.array = self.barray[..., :self.shape[-1]] if self.order == 'C' else self.barray[:self.shape[0], ...]
+            self.array = (
+                self.barray[..., : self.shape[-1]]
+                if self.order == "C"
+                else self.barray[: self.shape[0], ...]
+            )
         self._rinit()
         return self.array
 
@@ -338,12 +365,12 @@ class ContainerNode(BaseNode):
     """
 
     def __init__(
-            self,
-            *children: "BaseNode",
-            rule: int = BufferMap.DISTINCT,
-            name: Optional[Union[str, int, float]] = None,
-            no_merge: bool = False,
-            no_align: bool = False,
+        self,
+        *children: "BaseNode",
+        rule: int = BufferMap.DISTINCT,
+        name: Optional[Union[str, int, float]] = None,
+        no_merge: bool = False,
+        no_align: bool = False,
     ) -> None:
         super().__init__(name=name, no_merge=no_merge)
         self.rule: int = int(rule)
@@ -371,7 +398,8 @@ class ContainerNode(BaseNode):
                 raise TypeError("Children must be BaseNode instances")
         current = list(self.children)
         for k in kids:
-            if k in current: current.remove(k)
+            if k in current:
+                current.remove(k)
         new_order = current[:index] + list(kids) + current[index:]
         for k in kids:
             k.parent = self
@@ -397,8 +425,9 @@ class ContainerNode(BaseNode):
     def pop(self, *idxs):
         """Remove and return children by index and/or label.
 
-        Indices can be integers (negative supported) or labels (string). The
-        returned list preserves the *request* order, not the tree order.
+        Indices can be integers (negative supported) or labels (string).
+        The returned list preserves the *request* order, not the tree
+        order.
         """
         # Copy current children to a mutable list
         children = list(self.children)
@@ -428,14 +457,25 @@ class ContainerNode(BaseNode):
         self.children = tuple(children)
         return popped
 
-    def build_flatmap(self, align: int = BufferAlign.AVX512, name_join: bool = True, force_merge: bool = False,
-                      verbose: bool = False):
+    def build_flatmap(
+        self,
+        align: int = BufferAlign.AVX512,
+        name_join: bool = True,
+        force_merge: bool = False,
+        verbose: bool = False,
+    ):
         """Build, allocate, and return the initialized leaf values in preorder.
 
         Convenience wrapper around ``build_bmap`` → ``allocate_bmap`` →
         ``flat_inits``. See those functions for details.
         """
-        build_bmap(self, align=align, name_join=name_join, force_merge=force_merge, verbose=verbose)
+        build_bmap(
+            self,
+            align=align,
+            name_join=name_join,
+            force_merge=force_merge,
+            verbose=verbose,
+        )
         allocate_bmap(self, align=align)
         return flat_inits(self)
 
@@ -460,12 +500,17 @@ def _chkfalign(fshape, forder, shape, order, align):
     signaling intent to change layout, so the previous alignment is dropped.
     """
     # change this later so that if it's reversed dimensions in forder != order we keep align
-    return align is use_other and (shape is None or fshape == shape) and (order is None or forder == order)
+    return (
+        align is use_other
+        and (shape is None or fshape == shape)
+        and (order is None or forder == order)
+    )
 
 
 # ValueNode
 def v_spec(value, name=None):
-    """Wrap a literal value in a :class:`ValueNode` that doesn't use buffer bytes.
+    """Wrap a literal value in a :class:`ValueNode` that doesn't use buffer
+    bytes.
 
     The value participates in preorder flattening alongside arrays and is
     returned by ``flat_inits`` in position order.
@@ -474,7 +519,9 @@ def v_spec(value, name=None):
 
 
 # ArrayNode
-def ar_spec(shape=(0,), dtype=np.float64, order='C', init_op=None, name=None, align_ldim=None) -> ArrayNode:  # noqa: D401
+def ar_spec(
+    shape=(0,), dtype=np.float64, order="C", init_op=None, name=None, align_ldim=None
+) -> ArrayNode:  # noqa: D401
     """Define an :class:`ArrayNode` with optional aligned-leading-dimension.
 
     ``align_ldim`` pads the leading dimension (last in C order, first in F)
@@ -486,18 +533,47 @@ def ar_spec(shape=(0,), dtype=np.float64, order='C', init_op=None, name=None, al
 
 
 # @cache
-def f_arspec_i(shape=None, dtype=None, order=None, init_op=use_other, name=None, align_ldim=use_other) -> callable:
+def f_arspec_i(
+    shape=None,
+    dtype=None,
+    order=None,
+    init_op=use_other,
+    name=None,
+    align_ldim=use_other,
+) -> callable:
     """Return a partially-applied constructor for :func:`f_arspec`.
 
     Any field left as ``None``/``use_other`` will inherit from the base spec
     supplied at call-time.
     """
-    sshape, ddtype, oorder, iinit_op, nname, aalign_ldim = shape, dtype, order, init_op, name, align_ldim
-    return partial(f_arspec, shape=sshape, dtype=ddtype, order=oorder, init_op=iinit_op, name=nname, align_ldim=aalign_ldim)
+    sshape, ddtype, oorder, iinit_op, nname, aalign_ldim = (
+        shape,
+        dtype,
+        order,
+        init_op,
+        name,
+        align_ldim,
+    )
+    return partial(
+        f_arspec,
+        shape=sshape,
+        dtype=ddtype,
+        order=oorder,
+        init_op=iinit_op,
+        name=nname,
+        align_ldim=aalign_ldim,
+    )
 
 
-def f_arspec(arspec: ArrayNode, shape=None, dtype=None, order=None, init_op=use_other, name=None,
-             align_ldim=use_other) -> ArrayNode:
+def f_arspec(
+    arspec: ArrayNode,
+    shape=None,
+    dtype=None,
+    order=None,
+    init_op=use_other,
+    name=None,
+    align_ldim=use_other,
+) -> ArrayNode:
     """Clone an :class:`ArrayNode` spec, overriding selected fields.
 
     ``align_ldim`` is inherited only if ``shape`` and ``order`` are unchanged
@@ -505,15 +581,31 @@ def f_arspec(arspec: ArrayNode, shape=None, dtype=None, order=None, init_op=use_
     Passing ``init_op=None`` explicitly disables the original initializer.
     """
     rs = arspec
-    if not isinstance(rs, ArrayNode): raise ValueError("`f_arspec` only takes ArrayNode for `arspec`.")
+    if not isinstance(rs, ArrayNode):
+        raise ValueError("`f_arspec` only takes ArrayNode for `arspec`.")
     spc_align = _chkfalign(rs.shape, rs.order, shape, order, align_ldim)
     align_ldim = None if align_ldim is use_other else align_ldim
-    sshape, ddtype, oorder, iinit_op, aalign_ldim, nname = rs.shape if shape is None else shape, rs.dtype if dtype is None else dtype, rs.order if order is None else order, rs.init_op if init_op is use_other else init_op, rs.bshape if spc_align else align_ldim, name
+    sshape, ddtype, oorder, iinit_op, aalign_ldim, nname = (
+        rs.shape if shape is None else shape,
+        rs.dtype if dtype is None else dtype,
+        rs.order if order is None else order,
+        rs.init_op if init_op is use_other else init_op,
+        rs.bshape if spc_align else align_ldim,
+        name,
+    )
     return ar_spec(sshape, ddtype, oorder, iinit_op, nname, aalign_ldim)
 
 
-def array_arspec(arr: np.ndarray, shape=None, dtype=None, order=None, init_op=use_other, name=None, align_ldim=use_other,
-                 _aldim_def=BufferAlign.AVX512) -> ArrayNode:
+def array_arspec(
+    arr: np.ndarray,
+    shape=None,
+    dtype=None,
+    order=None,
+    init_op=use_other,
+    name=None,
+    align_ldim=use_other,
+    _aldim_def=BufferAlign.AVX512,
+) -> ArrayNode:
     """Create an Array spec from an existing ndarray, preserving layout.
 
     Detects C/F/"aligned" order via strides. If requested order or shape differ
@@ -521,23 +613,38 @@ def array_arspec(arr: np.ndarray, shape=None, dtype=None, order=None, init_op=us
     mismatches. By default, the original array is used as ``init_op``.
     """
     torder = _gao(arr)
-    nr = order == 'A' or order is None
-    if torder == 'A':
+    nr = order == "A" or order is None
+    if torder == "A":
         torder, bshape = _sao(arr)
         if not (nr or order == torder) and align_ldim is use_other:
             align_ldim = None
     elif align_ldim is use_other:
         align_ldim = None
-    if nr: order = torder
+    if nr:
+        order = torder
     if not (shape is None or shape == arr.shape) and align_ldim is use_other:
         align_ldim = None
-    if align_ldim is use_other: align_ldim = bshape
-    return ar_spec(arr.shape if shape is None else shape, arr.dtype if dtype is None else dtype, order,
-                   arr if init_op is use_other else init_op, name, align_ldim)
+    if align_ldim is use_other:
+        align_ldim = bshape
+    return ar_spec(
+        arr.shape if shape is None else shape,
+        arr.dtype if dtype is None else dtype,
+        order,
+        arr if init_op is use_other else init_op,
+        name,
+        align_ldim,
+    )
 
 
-def ft_arspec(arspec: ArrayNode, shape=None, dtype=None, order=None, init_op=use_other, name=None,
-              align_ldim=use_other) -> ArrayNode:
+def ft_arspec(
+    arspec: ArrayNode,
+    shape=None,
+    dtype=None,
+    order=None,
+    init_op=use_other,
+    name=None,
+    align_ldim=use_other,
+) -> ArrayNode:
     """Return a **transposed** Array spec without changing memory layout.
 
     Swaps C↔F logical order, flips shapes/``bshape``, and carries over
@@ -545,25 +652,51 @@ def ft_arspec(arspec: ArrayNode, shape=None, dtype=None, order=None, init_op=use
     """
     rs = arspec
     rop = rs.init_op
-    top = rop.T if isinstance(rs.init_op, np.ndarray) else (lambda ar: rop(ar.T)) if rop is not None else rop
-    tspec = ar_spec(rs.shape[::-1], rs.dtype, 'C' if rs.order != 'C' else 'F', top, rs.name, rs.bshape[::-1])
-    return f_arspec(tspec, shape=shape, dtype=dtype, order=order, init_op=init_op, name=name, align_ldim=align_ldim)
+    top = (
+        rop.T
+        if isinstance(rs.init_op, np.ndarray)
+        else (lambda ar: rop(ar.T))
+        if rop is not None
+        else rop
+    )
+    tspec = ar_spec(
+        rs.shape[::-1],
+        rs.dtype,
+        "C" if rs.order != "C" else "F",
+        top,
+        rs.name,
+        rs.bshape[::-1],
+    )
+    return f_arspec(
+        tspec,
+        shape=shape,
+        dtype=dtype,
+        order=order,
+        init_op=init_op,
+        name=name,
+        align_ldim=align_ldim,
+    )
 
 
-# ContainerNode   
+# ContainerNode
+
 
 def sb_node(*args, name=None, no_merge=False) -> ContainerNode:
-    """Create a shared-region :class:`ContainerNode` (children overlay memory)."""
+    """Create a shared-region :class:`ContainerNode` (children overlay
+    memory)."""
     return ContainerNode(*args, rule=BufferMap.SHARED, name=name, no_merge=no_merge)
 
 
 def db_node(*args, name=None, no_merge=False, no_align=False) -> ContainerNode:
-    """Create a distinct-region :class:`ContainerNode` (children are concatenated).
+    """Create a distinct-region :class:`ContainerNode` (children are
+    concatenated).
 
     ``no_align=True`` disables per-child alignment so the concatenation can
     exactly match an external memory layout.
     """
-    return ContainerNode(*args, rule=BufferMap.DISTINCT, name=name, no_merge=no_merge, no_align=no_align)
+    return ContainerNode(
+        *args, rule=BufferMap.DISTINCT, name=name, no_merge=no_merge, no_align=no_align
+    )
 
 
 def oneshot_args(bmap: BaseNode):
@@ -587,8 +720,14 @@ def items_init(items: Tuple[ItemNodeT]):
 
 
 # Build Buffer Offset Tree and Metadata.
-def build_bmap(bmap: ContainerNode, *, align: int = BufferAlign.AVX512, name_join: bool = True, force_merge: bool = False,
-               verbose: bool = False) -> ContainerNode:
+def build_bmap(
+    bmap: ContainerNode,
+    *,
+    align: int = BufferAlign.AVX512,
+    name_join: bool = True,
+    force_merge: bool = False,
+    verbose: bool = False,
+) -> ContainerNode:
     """Run reduction → size/offset propagation on a buffer-map tree.
 
     Parameters
@@ -607,15 +746,13 @@ def build_bmap(bmap: ContainerNode, *, align: int = BufferAlign.AVX512, name_joi
     gen_buffer_specs(bmap, align=align)
     if verbose:
         check_bmap(bmap)
-    return bmap(bmap, name_join=name_join, force_merge=force_merge)
-    gen_buffer_specs(bmap, align=align)
-    if verbose:
-        check_bmap(bmap)
     return bmap
 
 
 # Allocate and assign buffers for buffer map/tree, only for the arrays.
-def allocate_bmap(bmap: ContainerNode, align: int = BufferAlign.AVX512) -> ContainerNode:
+def allocate_bmap(
+    bmap: ContainerNode, align: int = BufferAlign.AVX512
+) -> ContainerNode:
     """Allocate a single aligned top buffer and map arrays to views.
 
     Requires ``build_bmap`` to have populated sizes/offsets.
@@ -631,11 +768,11 @@ def allocate_bmap(bmap: ContainerNode, align: int = BufferAlign.AVX512) -> Conta
 # other
 def _gao(arr):
     """Get array memory order: 'C', 'F', or 'A' (aligned/other)."""
-    if arr.flags['C_CONTIGUOUS']:
-        return 'C'
-    elif arr.flags['F_CONTIGUOUS']:
-        return 'F'
-    return 'A'
+    if arr.flags["C_CONTIGUOUS"]:
+        return "C"
+    elif arr.flags["F_CONTIGUOUS"]:
+        return "F"
+    return "A"
 
 
 def _sao(arr: np.ndarray):
@@ -651,7 +788,7 @@ def _sao(arr: np.ndarray):
     if arr.ndim < 2:
         return tuple(s)
     s0, sn = abs(arr.strides[0]), abs(arr.strides[-1])
-    i, o, od = (-1, -2, 'C') if s0 >= sn else (0, 1, 'F')
+    i, o, od = (-1, -2, "C") if s0 >= sn else (0, 1, "F")
     s[i] = abs(arr.strides[o]) // abs(arr.strides[i])
     return od, tuple(s)
 
@@ -659,21 +796,28 @@ def _sao(arr: np.ndarray):
 # ---------------------------------------------------------------------------
 # 1) Reduction (merge adjacent identical‑rule containers)
 # ---------------------------------------------------------------------------
-def _merge_child_into_parent(parent: ContainerNode, child: ContainerNode, *, name_join: bool):
-    """Move ``child``'s children into ``parent`` (same rule), optionally renaming.
+def _merge_child_into_parent(
+    parent: ContainerNode, child: ContainerNode, *, name_join: bool
+):
+    """Move ``child``'s children into ``parent`` (same rule), optionally
+    renaming.
 
     When ``name_join`` is true and both have labels, grand-children labels are
     prefixed with the parent's label to preserve context and reduce collisions.
     """
     if name_join and parent.label and child.label:
         for grand in child.children:
-            grand.label = f"{parent.label}_{grand.label or ''}" if grand.label else parent.label
+            grand.label = (
+                f"{parent.label}_{grand.label or ''}" if grand.label else parent.label
+            )
     for g in list(child.children):
         g.parent = parent
     child.parent = None
 
 
-def reduce_bmap(bmap: ContainerNode, *, name_join: bool = True, force_merge: bool = False) -> ContainerNode:
+def reduce_bmap(
+    bmap: ContainerNode, *, name_join: bool = True, force_merge: bool = False
+) -> ContainerNode:
     """Merge adjacent containers with the same rule.
 
     If ``force_merge`` is False, a ``no_merge=True`` on either container blocks
@@ -683,8 +827,11 @@ def reduce_bmap(bmap: ContainerNode, *, name_join: bool = True, force_merge: boo
         if not isinstance(node, ContainerNode):
             continue
         for ch in list(node.children):
-            if isinstance(ch, ContainerNode) and node.rule == ch.rule and (
-                    force_merge or (not node.no_merge and not ch.no_merge)):
+            if (
+                isinstance(ch, ContainerNode)
+                and node.rule == ch.rule
+                and (force_merge or (not node.no_merge and not ch.no_merge))
+            ):
                 _merge_child_into_parent(node, ch, name_join=name_join)
     return bmap
 
@@ -700,8 +847,10 @@ def _compute_nbytes(node: BaseNode, align: int = BufferAlign.AVX512) -> int:
     - ``ContainerNode`` combines child sizes per rule; ``no_align`` on
       DISTINCT containers disables per-child rounding.
     """
-    if isinstance(node, ValueNode): return 0
-    if isinstance(node, ArrayNode): return node.nbytes
+    if isinstance(node, ValueNode):
+        return 0
+    if isinstance(node, ArrayNode):
+        return node.nbytes
     # compute child sizes
     sizes = [_compute_nbytes(ch, align) for ch in node.children]
     if node.rule == BufferMap.SHARED:
@@ -718,7 +867,9 @@ def _compute_nbytes(node: BaseNode, align: int = BufferAlign.AVX512) -> int:
     return node.nbytes
 
 
-def _assign_offsets(node: BaseNode, base: int = 0, align: int = BufferAlign.AVX512) -> None:
+def _assign_offsets(
+    node: BaseNode, base: int = 0, align: int = BufferAlign.AVX512
+) -> None:
     """Assign offsets in a single pass according to container rules.
 
     SHARED writes the same ``base`` to all children; DISTINCT advances by each
@@ -742,7 +893,9 @@ def _assign_offsets(node: BaseNode, base: int = 0, align: int = BufferAlign.AVX5
                     cur += ((size + align - 1) // align) * align
 
 
-def gen_buffer_specs(bmap: ContainerNode, align: int = BufferAlign.AVX512) -> ContainerNode:
+def gen_buffer_specs(
+    bmap: ContainerNode, align: int = BufferAlign.AVX512
+) -> ContainerNode:
     """Populate ``nbytes`` and ``ofs`` for the entire tree (no allocation)."""
     _compute_nbytes(bmap, align)
     _assign_offsets(bmap, 0, align)
@@ -756,23 +909,29 @@ def check_bmap(bmap: ContainerNode) -> None:
     """Print duplicate labels (diagnostic)."""
     seen: dict[str, List[BaseNode]] = {}
     for n in PreOrderIter(bmap):
-        if n.label: seen.setdefault(n.label, []).append(n)
+        if n.label:
+            seen.setdefault(n.label, []).append(n)
     dup = {k: v for k, v in seen.items() if len(v) > 1}
     if dup:
         print("Duplicate labels:")
-        for k, v in dup.items(): print(f"  {k} × {len(v)}")
+        for k, v in dup.items():
+            print(f"  {k} × {len(v)}")
 
 
 # ---------------------------------------------------------------------------
 # 5) Allocation
 # ---------------------------------------------------------------------------
-def _alloc(node: BaseNode, root_buf: np.ndarray, align: int = BufferAlign.AVX512) -> None:
-    """Attach container slices and materialize ``ArrayNode`` views recursively."""
-    if isinstance(node, ValueNode): return
+def _alloc(
+    node: BaseNode, root_buf: np.ndarray, align: int = BufferAlign.AVX512
+) -> None:
+    """Attach container slices and materialize ``ArrayNode`` views
+    recursively."""
+    if isinstance(node, ValueNode):
+        return
     if not isinstance(node, ArrayNode):
         if node.ofs is None or node.nbytes is None:
             raise RuntimeError("Node must have ofs/nbytes (run build_bmap first)")
-        node.buffer = root_buf[node.ofs: node.ofs + node.nbytes]
+        node.buffer = root_buf[node.ofs : node.ofs + node.nbytes]
         for ch in node.children:
             _alloc(ch, root_buf, align)
         return
@@ -786,23 +945,28 @@ def _alloc(node: BaseNode, root_buf: np.ndarray, align: int = BufferAlign.AVX512
 def _walk_index(node: BaseNode, idx: Sequence[int]) -> BaseNode:
     """Follow a child-index path from ``node`` and return the target node."""
     cur = node
-    for i in idx: cur = cur.children[i]  # type: ignore
+    for i in idx:
+        cur = cur.children[i]  # type: ignore
     return cur
 
 
 def bmap_get(bid: Union[Sequence[int], str, BaseNode], bmap: ContainerNode) -> BaseNode:
     """Resolve a node reference by path, label, or pass-through instance."""
-    if isinstance(bid, BaseNode): return bid
-    if isinstance(bid, (list, tuple)): return _walk_index(bmap, bid)
+    if isinstance(bid, BaseNode):
+        return bid
+    if isinstance(bid, (list, tuple)):
+        return _walk_index(bmap, bid)
     if isinstance(bid, str):
         for n in PreOrderIter(bmap):
-            if n.label == bid: return n
+            if n.label == bid:
+                return n
         raise KeyError(bid)
     raise TypeError("bid must be path/label/node")
 
 
 def dtype_abbr(dtype: np.dtype) -> str:
-    """Return a short ``kind_bits`` abbreviation (e.g., ``'f_64'``, ``'i_32'``)."""
+    """Return a short ``kind_bits`` abbreviation (e.g., ``'f_64'``,
+    ``'i_32'``)."""
     kind = dtype.kind.lower()  # e.g. 'i', 'u', 'f', 'c', 'b', 'M', 'm', …
     bits = dtype.itemsize * 8  # itemsize is in bytes → *8 for bits
     return f"{kind}_{bits}"
@@ -810,11 +974,12 @@ def dtype_abbr(dtype: np.dtype) -> str:
 
 # 7) DOT export
 def _dot_node_attr(node: BaseNode, *, with_offsets: bool) -> str:
-    """Generate DOT attributes with name inside node and other info as external."""
+    """Generate DOT attributes with name inside node and other info as
+    external."""
     # Secondary info for external label (xlabel)
     info_parts: List[str] = []
     if node.label:
-        info_parts.append(f'- {node.label} -')
+        info_parts.append(f"- {node.label} -")
     if isinstance(node, ArrayNode):
         if node.align_ldim is not None:
             info_parts.append(f"{node.shape}, {node.vshape}, {dtype_abbr(node.dtype)}")
@@ -826,7 +991,7 @@ def _dot_node_attr(node: BaseNode, *, with_offsets: bool) -> str:
         qrg = 18
         vt = vt[:qrg]
         if qrg <= len(vt):
-            vt = vt[:10] + '...'
+            vt = vt[:10] + "..."
         info_parts.append(vt)
         col = 'color="pink"'
     else:
@@ -847,12 +1012,13 @@ def _dot_node_attr(node: BaseNode, *, with_offsets: bool) -> str:
 
 
 def bmap_todot(bmap: ContainerNode, *, with_offsets: bool = True) -> str:
-    """Serialize the tree to Graphviz DOT via ``anytree.exporter.DotExporter``."""
+    """Serialize the tree to Graphviz DOT via
+    ``anytree.exporter.DotExporter``."""
     lines = []
     for line in DotExporter(
-            bmap,
-            nodenamefunc=lambda n: f'n_{n.id}',
-            nodeattrfunc=lambda n: _dot_node_attr(n, with_offsets=with_offsets),
+        bmap,
+        nodenamefunc=lambda n: f"n_{n.id}",
+        nodeattrfunc=lambda n: _dot_node_attr(n, with_offsets=with_offsets),
     ):
         lines.append(line)
     return "\n".join(lines)
@@ -887,13 +1053,13 @@ def _bmap_pyvis(src: Union[str, ContainerNode], *, with_offsets: bool = False):
     # Strip embedded quotes from labels and colors
     for node in net.nodes:
         # Clean label
-        lbl = node.get('label')
+        lbl = node.get("label")
         if isinstance(lbl, str) and lbl.startswith('"') and lbl.endswith('"'):
-            node['label'] = lbl.strip('"')
+            node["label"] = lbl.strip('"')
         # Clean color
-        col = node.get('color')
+        col = node.get("color")
         if isinstance(col, str) and col.startswith('"') and col.endswith('"'):
-            node['color'] = col.strip('"')
+            node["color"] = col.strip('"')
     net.set_options("""{
   "layout": {"hierarchical":{"enabled":true,"direction":"UD","sortMethod":"hubsize","blockShifting":true,"edgeMinimization":true}},
   "physics":{"enabled":true}
@@ -903,7 +1069,8 @@ def _bmap_pyvis(src: Union[str, ContainerNode], *, with_offsets: bool = False):
 
 # 8) PyVis visualiser
 def bmap_pyvis(src: Union[str, ContainerNode], *, with_offsets: bool = False):
-    """Build a PyVis interactive tree using a top-down layout and physics enabled."""
+    """Build a PyVis interactive tree using a top-down layout and physics
+    enabled."""
     try:
         from pyvis.network import Network
         import networkx as nx
@@ -912,7 +1079,9 @@ def bmap_pyvis(src: Union[str, ContainerNode], *, with_offsets: bool = False):
         raise ImportError("pyvis, networkx, pydot required for bmap_pyvis()") from e
 
     # Obtain DOT source and parse
-    dot_data = src if isinstance(src, str) else bmap_todot(src, with_offsets=with_offsets)
+    dot_data = (
+        src if isinstance(src, str) else bmap_todot(src, with_offsets=with_offsets)
+    )
     graphs = pydot.graph_from_dot_data(dot_data)
     if not graphs:
         raise ValueError("Failed to parse DOT data")
@@ -949,17 +1118,23 @@ def bmap_pyvis(src: Union[str, ContainerNode], *, with_offsets: bool = False):
     # # No other graph modifications
 
     # Build PyVis network
-    net = Network(directed=True, height='1000px', width='100%', bgcolor='#111111', font_color='black')
+    net = Network(
+        directed=True,
+        height="1000px",
+        width="100%",
+        bgcolor="#111111",
+        font_color="black",
+    )
     net.from_nx(g_nx)
 
     # Clean any embedded quotes
     for node in net.nodes:
-        lbl = node.get('label')
+        lbl = node.get("label")
         if isinstance(lbl, str) and lbl.startswith('"') and lbl.endswith('"'):
-            node['label'] = lbl.strip('"')
-        col = node.get('color')
+            node["label"] = lbl.strip('"')
+        col = node.get("color")
         if isinstance(col, str) and col.startswith('"') and col.endswith('"'):
-            node['color'] = col.strip('"')
+            node["color"] = col.strip('"')
 
     # Top-down hierarchy, hubsize sort, physics on
     net.set_options("""{
@@ -971,7 +1146,9 @@ def bmap_pyvis(src: Union[str, ContainerNode], *, with_offsets: bool = False):
 
 
 # 9) Static Graphviz render
-def save_bmap_tree(bmap: ContainerNode, path: str = "bmap_tree.png", *, with_offsets: bool = False) -> str:
+def save_bmap_tree(
+    bmap: ContainerNode, path: str = "bmap_tree.png", *, with_offsets: bool = False
+) -> str:
     """Render the tree to a static image using Graphviz and return ``path``."""
     DotExporter(
         bmap,
@@ -984,6 +1161,7 @@ def save_bmap_tree(bmap: ContainerNode, path: str = "bmap_tree.png", *, with_off
 # ---------------------------------------------------------------------------
 # Utility – cloning
 # ---------------------------------------------------------------------------
+
 
 def clone_bmap(bmap: ContainerNode):
     """Deep-clone an entire buffer-map tree (labels, sizes, offsets, etc.)."""
