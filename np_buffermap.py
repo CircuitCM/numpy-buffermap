@@ -47,7 +47,6 @@ import numpy as np
 from anytree import NodeMixin, PreOrderIter, RenderTree, DoubleStyle
 from anytree.exporter import DotExporter
 from functools import partial
-import aopt.utils.numba as nbu
 
 
 # __all__ = [
@@ -93,7 +92,17 @@ class BufferAlign:
     PAGE = 4096  # Typical OS page size
 
 
-from numba import typeof
+import importlib
+
+if importlib.util.find_spec('numba'):
+    from numba.extending import register_jitable
+    #fastmath should make no difference for allocating a buffer.
+    rgc=register_jitable(cache=True,fastmath=True,error_model='numpy') 
+    from numba import typeof
+else:
+    def typeof(*args):
+        return np.dtype(type(args[0]))
+    rgc=lambda f:f
 
 
 class NativeTypes:
@@ -141,7 +150,7 @@ class _IDGen:
         return next(cls._ctr)
 
 
-@nbu.rgc
+@rgc
 def aligned_buffer(n_bytes: int, align: int = BufferAlign.AVX512) -> np.ndarray:
     """Return an aligned ``uint8`` view of length ``n_bytes``.
 
