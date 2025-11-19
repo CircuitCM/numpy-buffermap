@@ -530,7 +530,7 @@ def v_spec(value, name=None):
 # ArrayNode
 def ar_spec(
     shape=(0,), dtype=np.float64, order="C", init_op=None, name=None, align_ldim=None
-) -> ArrayNode:  # noqa: D401
+) -> ArrayNode:
     """Define an :class:`ArrayNode` with optional aligned-leading-dimension.
 
     ``align_ldim`` pads the leading dimension (last in C order, first in F)
@@ -1150,6 +1150,11 @@ def bmap_pyvis(src: Union[str, ContainerNode], *, with_offsets: bool = False):
       "layout": {"hierarchical":{"enabled":true,"direction":"UD","sortMethod":"hubsize","blockShifting":true,"edgeMinimization":true}},
       "physics":{"enabled":true, "wind": { "x": 0.0, "y": 0 }}
     }""")
+    
+    
+    # pgraph = nx.drawing.nx_pydot.to_pydot(g_nx)
+    # pgraph.write_png()
+    # g_nx.
 
     return net
 
@@ -1175,3 +1180,126 @@ def save_bmap_tree(
 def clone_bmap(bmap: ContainerNode):
     """Deep-clone an entire buffer-map tree (labels, sizes, offsets, etc.)."""
     return copy.deepcopy(bmap)
+
+
+from typing import Union
+
+def bmap_pyvis2(
+    src: Union[str, "ContainerNode"],
+    *,
+    with_offsets: bool = False,
+    return_image: bool = False,
+):
+    """Build a PyVis interactive tree or a static PIL.Image.
+
+    If return_image=True, returns a PIL.Image (no files written).
+    Otherwise returns a pyvis.network.Network.
+    """
+    try:
+        from pyvis.network import Network
+        import networkx as nx
+        import pydot
+    except ImportError as e:
+        raise ImportError("pyvis, networkx, pydot required for bmap_pyvis()") from e
+
+    # Obtain DOT source and parse
+    dot_data = (
+        src if isinstance(src, str) else bmap_todot(src, with_offsets=with_offsets)
+    )
+    graphs = pydot.graph_from_dot_data(dot_data)
+    if not graphs:
+        raise ValueError("Failed to parse DOT data")
+
+    pgraph = graphs[0]
+
+    # Convert to NetworkX
+    g_nx = nx.drawing.nx_pydot.from_pydot(pgraph)
+
+    # Insert a blank white dummy sibling under the root container to anchor hubsize
+    nodes = list(g_nx.nodes)
+    root_id = nodes[0] if nodes else None
+    dummy = 0
+
+    if dummy not in g_nx:
+        g_nx.add_node(
+            dummy,
+            label="",
+            shape="circle",
+            style="filled",
+            fillcolor="white",
+            color="white",
+            fixed=True,
+        )
+
+    succ = list(g_nx.successors(root_id))
+    for v in succ:
+        g_nx.remove_edge(root_id, v)
+
+    new_order = [dummy] + [v for v in succ if v not in (dummy, root_id)]
+    for v in new_order:
+        g_nx.add_edge(root_id, v)
+
+    # --- NEW: static image branch -----------------------------------------
+    if return_image:
+        # Needs: matplotlib, pillow (PIL)
+        import io
+        from PIL import Image
+        import matplotlib.pyplot as plt
+        from networkx.drawing.nx_pydot import graphviz_layout
+
+        # Use Graphviz "dot" for top-down layout similar-ish to PyVis hierarchical
+        pos = graphviz_layout(g_nx, prog="dot")
+
+        fig, ax = plt.subplots(figsize=(8, 10))
+        ax.axis("off")
+
+        # Try to use node labels if present; fallback to node ids
+        labels = {
+            n: (d.get("label") if isinstance(d, dict) else str(n))
+            for n, d in g_nx.nodes(data=True)
+        }
+
+        # Draw; you can tune these parameters as you like
+        nx.draw(
+            g_nx,
+            pos,
+            with_labels=True,
+            labels=labels,
+            arrows=True,
+            node_size=500,
+            ax=ax,
+        )
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight")
+        plt.close(fig)
+        buf.seek(0)
+        img = Image.open(buf)
+        return img
+    # ----------------------------------------------------------------------
+
+    # Default: build PyVis network
+    net = Network(
+        directed=True,
+        height="1000px",
+        width="100%",
+        bgcolor="#111111",
+        font_color="black",
+    )
+    net.from_nx(g_nx)
+
+    # Clean any embedded quotes
+    for node in net.nodes:
+        lbl = node.get("label")
+        if isinstance(lbl, str) and lbl.startswith('"') and lbl.endswith('"'):
+            node["label"] = lbl.strip('"')
+        col = node.get("color")
+        if isinstance(col, str) and col.startswith('"') and col.endswith('"'):
+            node["color"] = col.strip('"')
+
+    net.set_options("""{
+      "layout": {"hierarchical":{"enabled":true,"direction":"UD","sortMethod":"hubsize","blockShifting":true,"edgeMinimization":true}},
+      "physics":{"enabled":true, "wind": { "x": 0.0, "y": 0 }}
+    }""")
+
+    return net
