@@ -1,15 +1,15 @@
 # Basic Use
 We will begin our example by abbreviating the typical considerations in developing a numerical algorithm on CPU top to bottom:
 1. System RAM. Where memory allocations originate. Typically dubbed a *heap* allocation though software notions like heap/stack are independent of the hardware specs.
-2. CPU caches, usually L1-3. Utilized in prefetching memory blocks to speed up repeated memory accesses. Caching is largely responsible for the improvement in stack
-3. The Core registry, where data is loaded by the (two) read ports, operated on by the other ports, and written out by the often singular write port. Modern ports can handle (roughly) one AVX512 instruction set per core cycle collectively as a single unit. [For more info on this](https://en.wikichip.org/wiki/intel/microarchitectures/skylake_(client)#Scheduler_Ports_.26_Execution_Units).
-    - Just from the different amount of read and write ports we can see that instructions groups will have bias. It means that if we can coax the compiler into utilizing every port of the core on vectorization, we could in theory achieve the most operation dense and fast kernel.
+2. CPU caches, usually L1-3. Utilized in prefetching memory blocks to speed up repeated memory accesses. Caching is largely responsible for the notion of stack-fast heap-slow.
+3. The Core registry is where data is loaded by the (two) read ports, operated on by the other ports, and written out by the often singular write port. A port can handle (roughly) one AVX512 instruction set per core cycle, and all ports may be used within that cycle. [For more info on this](https://en.wikichip.org/wiki/intel/microarchitectures/skylake_(client)#Scheduler_Ports_.26_Execution_Units).
+    - Just from the various ports we know that some instruction sequences will utilize more ports in one cycle than others. It means that if we can coax the compiler into utilizing every port of the core on vectorization, we could in theory achieve the most operation dense and fast kernel.
     - This leads to some interesting micro benchmarks on kernels that fully or partially subscribe to the [triad](https://www.intel.com/content/www/us/en/developer/articles/technical/optimizing-memory-bandwidth-on-stream-triad.html) template. Performing much better per operation than simpler kernels. However this is beyond the scope of this demo.  
 
 The target of performance optimization in this library is point 1 and 2. In compiled code, calling `malloc` in the default manner and releasing buffer allocations is slow; skipping the discussion on why that is, we realize a priority to reuse memory for dense numerical array operations. Following this reasoning we can group buffer memory into two parts:  
-| Shareable Memory                                                                        | Distinct Memory                                                                             |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| All temporary arrays, e.g. used as scratch<br>and that do not require simultaneous use. | All arrays that contain data needed over<br>the lifetime of execution, e.g. looping bodies. |
+| Shareable Memory                                                                              | Distinct Memory                                                                             |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| All temporary arrays, e.g. used as scratch<br>and that do not require simultaneous occupancy. | All arrays that contain data needed over<br>the lifetime of execution, e.g. looping bodies. |
 
 What we find is that any *shareable memory* arrays can overlap and use the same buffer, except for the section holding *distinct memory*. While distinct memory holds arrays that cannot be shared with each other or the buffer holding the shared memory. Infact we can call the shared memory node an array (member) of the distinct node. These dependencies have the workings of a tree, and we can in fact represent this with **Numpy Buffermap** like so:
 
@@ -67,8 +67,6 @@ ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_1.html',noteb
     (5, 4, 3) float64 <class 'numpy.ndarray'>
     (20,) float64 <class 'numpy.ndarray'>
     (8, 9) int32 <class 'numpy.ndarray'>
-    [<pydot.core.Dot object at 0x0000026798FD36E0>]
-    D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_1.html
     
 
 | No Byte Offset                 | With Byte Offset               |
@@ -86,9 +84,6 @@ ot=npb.bmap_pyvis(shared_mem,with_offsets=True,height='1000px')
 ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_sub1.html',notebook=False)
 ```
 
-    [<pydot.core.Dot object at 0x000002679900AE40>]
-    D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_sub1.html
-    
 
 ![algsub1](renders/algo_mem_sub1.png)
 
@@ -106,11 +101,6 @@ ot=npb.bmap_pyvis(mem_map,with_offsets=True,)
 ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_page1.html',notebook=False)
 #Notes: Larger alignments are already aligned with smaller ones. Multiple distinct arrays that all fit within a single could make sense for multiple large arrays or multiple shared arrays th, but with multiple 
 ```
-
-    [<pydot.core.Dot object at 0x000002679907D1F0>]
-    D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_avx5121.html
-    [<pydot.core.Dot object at 0x0000026798DE6270>]
-    D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_page1.html
     
 
 See now that all arrays align with a multiple of their byte size, and there is extra space between distinct offspring:
@@ -166,8 +156,6 @@ ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_shared.html',
 ```
 
     1288
-    [<pydot.core.Dot object at 0x000002679900D370>]
-    D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_shared.html
     
 
 ![shared](renders/algo_mem_shared.png)
@@ -211,8 +199,6 @@ ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_distinct.html
 ```
 
     1048
-    [<pydot.core.Dot object at 0x0000026799011CA0>]
-    D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_distinct.html
     
 
 ![distinct](renders/algo_mem_distinct.png)
