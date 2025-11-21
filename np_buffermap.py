@@ -469,6 +469,7 @@ class ContainerNode(BaseNode):
     def build_flatmap(
         self,
         align: int = BufferAlign.AVX512,
+        alignb: int = BufferAlign.PAGE,
         name_join: bool = True,
         force_merge: bool = False,
         verbose: bool = False,
@@ -485,7 +486,7 @@ class ContainerNode(BaseNode):
             force_merge=force_merge,
             verbose=verbose,
         )
-        allocate_bmap(self, align=align)
+        allocate_bmap(self, align=align,alignb=alignb)
         return flat_inits(self)
 
     def __repr__(self):
@@ -536,7 +537,9 @@ def ar_spec(
     ``align_ldim`` pads the leading dimension (last in C order, first in F)
     to a multiple of ``align_ldim // dtype.itemsize`` elements; the backing
     shape is stored in ``bshape`` while the exposed logical shape remains
-    ``shape``.
+    ``shape``. NOTE this could make certain kernels and array access patterns much
+    quicker, but it also makes it non-contiguous which can break various numpy,
+    scipy, and numba operations.
     """
     return ArrayNode(shape, dtype, order, init_op, name=name, align_ldim=align_ldim)
 
@@ -760,15 +763,21 @@ def build_bmap(
 
 # Allocate and assign buffers for buffer map/tree, only for the arrays.
 def allocate_bmap(
-    bmap: ContainerNode, align: int = BufferAlign.AVX512
+    bmap: ContainerNode, align: int = BufferAlign.AVX512,alignb: int = BufferAlign.PAGE
 ) -> ContainerNode:
-    """Allocate a single aligned top buffer and map arrays to views.
-
+    """
+    Allocate a single aligned top buffer and map arrays to views.
     Requires ``build_bmap`` to have populated sizes/offsets.
+    
+    :param bmap: Buffer map.
+    :param align: What the ArrayNodes are offset aligned to. But not the initial buffer.
+    :param alignb: How the starting buffer offset is aligned.
+    If the buffer is page aligned, and most/all arrays can fit within the page, the memory will be more efficient.
+    :return: 
     """
     if bmap.nbytes is None:
         raise RuntimeError("Call build_bmap() before allocate_bmap().")
-    top = aligned_buffer(bmap.nbytes, align=align)
+    top = aligned_buffer(bmap.nbytes, align=max(alignb,align)) #must be atleast array align large.
     bmap.buffer = top
     _alloc(bmap, top, align)
     return bmap
@@ -1008,10 +1017,10 @@ def _dot_node_attr(node: BaseNode, *, with_offsets: bool) -> str:
             col = 'color="orange"'
         elif node.rule == BufferMap.SHARED:
             col = 'color="cyan"'
-    if node.nbytes is not None:
-        info_parts.append(f"{node.nbytes / 1024:.2f} KB")
     if with_offsets and node.ofs is not None:
-        info_parts.append(f"ofs: [{node.ofs}, {node.ofs + (node.nbytes or 0)})")
+        info_parts.append(f"[{node.ofs}, {node.ofs + (node.nbytes or 0)})")
+    if node.nbytes is not None:
+        info_parts.append(f"{node.nbytes / 1024:.2f} KB") #maybe change to 
     # Build attribute list
     label = "\n".join(info_parts)
     parts: List[str] = [f'label="{label}"', 'shape="circle"', 'labelloc="c"', col]
@@ -1075,9 +1084,23 @@ def _bmap_pyvis(src: Union[str, ContainerNode], *, with_offsets: bool = False):
 }""")
     return net
 
+BMAP_ROPTS2="""{
+      "layout": {"hierarchical":{"enabled":false,"direction":"UD","sortMethod":"hubsize","blockShifting":true,"edgeMinimization":true}},
+      "physics":{"enabled":true, "wind": { "x": 0.0, "y": 0 },"repulsion":{"nodeDistance": 200,"springLength": 200},"centralGravity":0.1}
+    }"""
+
+BMAP_ROPTS="""{
+      "layout": {"hierarchical":{"enabled":true,"direction":"UD","sortMethod":"hubsize","blockShifting":true,"edgeMinimization":true}},
+      "physics":{"enabled":true, "wind": { "x": 0.02, "y": 0 },"hierarchicalRepulsion":{"nodeDistance": 55,"avoidOverlap": 1}}
+    }"""
+
+_bopt="""{
+      "layout": {"hierarchical":{"enabled":true,"direction":"UD","sortMethod":"hubsize","blockShifting":true,"edgeMinimization":true}},
+      "physics":{"enabled":true, "wind": { "x": 0.02, "y": 0 },"hierarchicalRepulsion":{"nodeDistance": 67,"avoidOverlap": 1}}
+    }"""
 
 # 8) PyVis visualiser
-def bmap_pyvis(src: Union[str, ContainerNode], *, with_offsets: bool = False):
+def bmap_pyvis(src: Union[str, ContainerNode], with_offsets: bool = False,height='1000px',width='100%',render_options=BMAP_ROPTS):
     """Build a PyVis interactive tree using a top-down layout and physics
     enabled."""
     try:
@@ -1104,7 +1127,7 @@ def bmap_pyvis(src: Union[str, ContainerNode], *, with_offsets: bool = False):
     nodes = list(g_nx.nodes)
     root_id = nodes[0] if nodes else None
     dummy = 0
-    # add dummy node and edge
+    #Note: For some reason we need a dummy node otherwise the top level node will be out of place try the old _bmap_pyvis to see strange behavior
     if dummy not in g_nx:
         g_nx.add_node(
             dummy,
@@ -1129,8 +1152,8 @@ def bmap_pyvis(src: Union[str, ContainerNode], *, with_offsets: bool = False):
     # Build PyVis network
     net = Network(
         directed=True,
-        height="1000px",
-        width="100%",
+        height=height,
+        width=width,
         bgcolor="#111111",
         font_color="black",
     )
@@ -1145,16 +1168,9 @@ def bmap_pyvis(src: Union[str, ContainerNode], *, with_offsets: bool = False):
         if isinstance(col, str) and col.startswith('"') and col.endswith('"'):
             node["color"] = col.strip('"')
 
-    # Top-down hierarchy, hubsize sort, physics on
-    net.set_options("""{
-      "layout": {"hierarchical":{"enabled":true,"direction":"UD","sortMethod":"hubsize","blockShifting":true,"edgeMinimization":true}},
-      "physics":{"enabled":true, "wind": { "x": 0.0, "y": 0 }}
-    }""")
-    
-    
-    # pgraph = nx.drawing.nx_pydot.to_pydot(g_nx)
-    # pgraph.write_png()
-    # g_nx.
+    if render_options==BMAP_ROPTS and with_offsets: render_options=_bopt #bootleg? Yes
+    #render opts
+    net.set_options(render_options)
 
     return net
 
@@ -1180,126 +1196,3 @@ def save_bmap_tree(
 def clone_bmap(bmap: ContainerNode):
     """Deep-clone an entire buffer-map tree (labels, sizes, offsets, etc.)."""
     return copy.deepcopy(bmap)
-
-
-from typing import Union
-
-def bmap_pyvis2(
-    src: Union[str, "ContainerNode"],
-    *,
-    with_offsets: bool = False,
-    return_image: bool = False,
-):
-    """Build a PyVis interactive tree or a static PIL.Image.
-
-    If return_image=True, returns a PIL.Image (no files written).
-    Otherwise returns a pyvis.network.Network.
-    """
-    try:
-        from pyvis.network import Network
-        import networkx as nx
-        import pydot
-    except ImportError as e:
-        raise ImportError("pyvis, networkx, pydot required for bmap_pyvis()") from e
-
-    # Obtain DOT source and parse
-    dot_data = (
-        src if isinstance(src, str) else bmap_todot(src, with_offsets=with_offsets)
-    )
-    graphs = pydot.graph_from_dot_data(dot_data)
-    if not graphs:
-        raise ValueError("Failed to parse DOT data")
-
-    pgraph = graphs[0]
-
-    # Convert to NetworkX
-    g_nx = nx.drawing.nx_pydot.from_pydot(pgraph)
-
-    # Insert a blank white dummy sibling under the root container to anchor hubsize
-    nodes = list(g_nx.nodes)
-    root_id = nodes[0] if nodes else None
-    dummy = 0
-
-    if dummy not in g_nx:
-        g_nx.add_node(
-            dummy,
-            label="",
-            shape="circle",
-            style="filled",
-            fillcolor="white",
-            color="white",
-            fixed=True,
-        )
-
-    succ = list(g_nx.successors(root_id))
-    for v in succ:
-        g_nx.remove_edge(root_id, v)
-
-    new_order = [dummy] + [v for v in succ if v not in (dummy, root_id)]
-    for v in new_order:
-        g_nx.add_edge(root_id, v)
-
-    # --- NEW: static image branch -----------------------------------------
-    if return_image:
-        # Needs: matplotlib, pillow (PIL)
-        import io
-        from PIL import Image
-        import matplotlib.pyplot as plt
-        from networkx.drawing.nx_pydot import graphviz_layout
-
-        # Use Graphviz "dot" for top-down layout similar-ish to PyVis hierarchical
-        pos = graphviz_layout(g_nx, prog="dot")
-
-        fig, ax = plt.subplots(figsize=(8, 10))
-        ax.axis("off")
-
-        # Try to use node labels if present; fallback to node ids
-        labels = {
-            n: (d.get("label") if isinstance(d, dict) else str(n))
-            for n, d in g_nx.nodes(data=True)
-        }
-
-        # Draw; you can tune these parameters as you like
-        nx.draw(
-            g_nx,
-            pos,
-            with_labels=True,
-            labels=labels,
-            arrows=True,
-            node_size=500,
-            ax=ax,
-        )
-
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", bbox_inches="tight")
-        plt.close(fig)
-        buf.seek(0)
-        img = Image.open(buf)
-        return img
-    # ----------------------------------------------------------------------
-
-    # Default: build PyVis network
-    net = Network(
-        directed=True,
-        height="1000px",
-        width="100%",
-        bgcolor="#111111",
-        font_color="black",
-    )
-    net.from_nx(g_nx)
-
-    # Clean any embedded quotes
-    for node in net.nodes:
-        lbl = node.get("label")
-        if isinstance(lbl, str) and lbl.startswith('"') and lbl.endswith('"'):
-            node["label"] = lbl.strip('"')
-        col = node.get("color")
-        if isinstance(col, str) and col.startswith('"') and col.endswith('"'):
-            node["color"] = col.strip('"')
-
-    net.set_options("""{
-      "layout": {"hierarchical":{"enabled":true,"direction":"UD","sortMethod":"hubsize","blockShifting":true,"edgeMinimization":true}},
-      "physics":{"enabled":true, "wind": { "x": 0.0, "y": 0 }}
-    }""")
-
-    return net
