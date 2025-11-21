@@ -1,4 +1,4 @@
-from __future__ import annotations
+#from __future__ import annotations
 
 """Numpy Buffer Map
 ===================
@@ -1175,7 +1175,6 @@ def bmap_pyvis(src: Union[str, ContainerNode], with_offsets: bool = False,height
     return net
 
 
-# 9) Static Graphviz render
 def save_bmap_tree(
     bmap: ContainerNode, path: str = "bmap_tree.png", *, with_offsets: bool = False
 ) -> str:
@@ -1186,11 +1185,6 @@ def save_bmap_tree(
         nodeattrfunc=lambda n: _dot_node_attr(n, with_offsets=with_offsets),
     ).to_picture(path)
     return path
-
-
-# ---------------------------------------------------------------------------
-# Utility – cloning
-# ---------------------------------------------------------------------------
 
 
 def clone_bmap(bmap: ContainerNode):

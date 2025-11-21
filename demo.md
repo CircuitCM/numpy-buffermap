@@ -13,42 +13,40 @@ The target of performance optimization in this library is point 1 and 2. In comp
 
 What we find is that any *shareable memory* arrays can overlap and use the same buffer, except for the section holding *distinct memory*. While distinct memory holds arrays that cannot be shared with each other or the buffer holding the shared memory. Infact we can call the shared memory node an array (member) of the distinct node. These dependencies have the workings of a tree, and we can in fact represent this with **Numpy Buffermap** like so:
 
-
-
 ```python
-import np_buffermap as npb
+import bmap as npb
 import numpy as np
 
 # --- `ar_spec` returns an ArrayNode which contains all the arguments necessary to construct an array. 
-#arrays that save their data
-dist1=npb.ar_spec((69,),name='D1') #distinct array 1
-dist2=npb.ar_spec((3,5,8),np.float32,name='D2',) #distinct array 2
-dist3=npb.ar_spec((15,15),np.float32,name='D3',) #distinct array 3
+# arrays that save their data
+dist1 = npb.ar_spec((69,), name='D1')  # distinct array 1
+dist2 = npb.ar_spec((3, 5, 8), np.float32, name='D2', )  # distinct array 2
+dist3 = npb.ar_spec((15, 15), np.float32, name='D3', )  # distinct array 3
 
-#scratch arrays.
-s1=npb.ar_spec((5,4,3),name='S1')
-s2=npb.ar_spec((20,),name='S2')
-s3=npb.ar_spec((8,9),np.int32,name='S3',order='F')
+# scratch arrays.
+s1 = npb.ar_spec((5, 4, 3), name='S1')
+s2 = npb.ar_spec((20,), name='S2')
+s3 = npb.ar_spec((8, 9), np.int32, name='S3', order='F')
 
 # --- Now we utilize ContainerNode which come in two flavors: 
-#SharedNode sb_node - shared buffer node, 
-#DistinctNode db_node - distinct buffer node.
-mem_map=npb.db_node(dist1,dist2,dist3,name='Algo Mem')
-shared_mem=npb.sb_node(s1,s2,s3,name='Shared Mem')
+# SharedNode sb_node - shared buffer node, 
+# DistinctNode db_node - distinct buffer node.
+mem_map = npb.db_node(dist1, dist2, dist3, name='Algo Mem')
+shared_mem = npb.sb_node(s1, s2, s3, name='Shared Mem')
 mem_map.add(shared_mem)
 
-print(mem_map,'\n')
-#Calculates dimensions and ranges of buffer offsets, and places that info into the tree.
-#Separate because you might want to see how the byte offsets are calculated first, before allocating lots of memory.
-npb.build_bmap(mem_map,align=npb.BufferAlign.BYTE) #byte is equivalent to no extra padding of array alignments.
+print(mem_map, '\n')
+# Calculates dimensions and ranges of buffer offsets, and places that info into the tree.
+# Separate because you might want to see how the byte offsets are calculated first, before allocating lots of memory.
+npb.build_bmap(mem_map, align=npb.BufferAlign.BYTE)  # byte is equivalent to no extra padding of array alignments.
 
-#all the arrays are now initialized with shared or distinct buffer offsets.
-ars=mem_map.build_flatmap(align=npb.BufferAlign.BYTE)
-[print(i.shape,i.dtype,type(i)) for i in ars]
+# all the arrays are now initialized with shared or distinct buffer offsets.
+ars = mem_map.build_flatmap(align=npb.BufferAlign.BYTE)
+[print(i.shape, i.dtype, type(i)) for i in ars]
 
-ot=npb.bmap_pyvis(mem_map,with_offsets=True,height='1000px')
+ot = npb.bmap_pyvis(mem_map, with_offsets=True, height='1000px')
 ot.prep_notebook()
-ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_1.html',notebook=True)
+ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_1.html', notebook=True)
 
 ```
 
@@ -128,30 +126,29 @@ Relatedly, there are two ways I think about array overlap depending on what is m
 ## 1. Multiple Shared Groups
 The most obvious example would be allocating work memory in a multi-threaded environment, either task clones or different procedures:
 
-
 ```python
-import np_buffermap as npb
+import bmap as npb
 import numpy as np
 
-d1=npb.ar_spec((69,),name='D1') #distinct array 1
-mem_map=npb.db_node(d1,name='Separate 1')
+d1 = npb.ar_spec((69,), name='D1')  #distinct array 1
+mem_map = npb.db_node(d1, name='Separate 1')
 #share 1
-s1=npb.ar_spec((5,4,3),name='S1')
-s2=npb.ar_spec((20,),name='S2')
-share1=npb.sb_node(s1,s2,name='Shared 1')
+s1 = npb.ar_spec((5, 4, 3), name='S1')
+s2 = npb.ar_spec((20,), name='S2')
+share1 = npb.sb_node(s1, s2, name='Shared 1')
 
-s3=npb.ar_spec((5,3,2),name='S3')
-s4=npb.ar_spec((7,5),np.int32,name='S4',order='F')
-s5=npb.ar_spec((32,),name='S2')
-share2=npb.sb_node(s3,s4,s5,name='Shared 2')
+s3 = npb.ar_spec((5, 3, 2), name='S3')
+s4 = npb.ar_spec((7, 5), np.int32, name='S4', order='F')
+s5 = npb.ar_spec((32,), name='S2')
+share2 = npb.sb_node(s3, s4, s5, name='Shared 2')
 
-mem_map.add(share1,share2)
+mem_map.add(share1, share2)
 
-npb.build_bmap(mem_map,align=npb.BufferAlign.BYTE) #to see total bytes comparing example 2 below
-print(mem_map.nbytes) #Cumulative total number of bytes by default it is avx512 aligned.
+npb.build_bmap(mem_map, align=npb.BufferAlign.BYTE)  #to see total bytes comparing example 2 below
+print(mem_map.nbytes)  #Cumulative total number of bytes by default it is avx512 aligned.
 
-ot=npb.bmap_pyvis(mem_map,with_offsets=False,)
-ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_shared.html',notebook=False)
+ot = npb.bmap_pyvis(mem_map, with_offsets=False, )
+ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_shared.html', notebook=False)
 
 ```
 
@@ -161,28 +158,28 @@ ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_shared.html',
 ![shared](renders/algo_mem_shared.png)
 ## 2. Multiple Distinct Groups
 
-This situation is very common in serial execution. Consider an algorithm that has the typical shared and distinct groups. Then we have a subroutine that too has a shared and distinct group, but after completion all of it's memory can be reused:
-
+This situation is very common in serial execution. Consider an algorithm that has the typical shared and distinct groups. Then we have a subroutine that too has a shared and distinct group, but after completion all of it's memory can be
+reused:
 
 ```python
-import np_buffermap as npb
+import bmap as npb
 import numpy as np
 
 #Primary Algo
-d1=npb.ar_spec((69,),name='D1')
-algo=npb.db_node(d1,name='Algo')
+d1 = npb.ar_spec((69,), name='D1')
+algo = npb.db_node(d1, name='Algo')
 #share 1
-s1=npb.ar_spec((5,4,3),name='S1')
-s2=npb.ar_spec((20,),name='S2')
-share1=npb.sb_node(s1,s2,name='Shared 1')
+s1 = npb.ar_spec((5, 4, 3), name='S1')
+s2 = npb.ar_spec((20,), name='S2')
+share1 = npb.sb_node(s1, s2, name='Shared 1')
 
 #Subroutine
-s3=npb.ar_spec((5,3,2),name='S3')
-sub=npb.db_node(s3,name='Subroutine')
+s3 = npb.ar_spec((5, 3, 2), name='S3')
+sub = npb.db_node(s3, name='Subroutine')
 
-s4=npb.ar_spec((7,5),np.int32,name='S4',order='F')
-s5=npb.ar_spec((32,),name='S2')
-share2=npb.sb_node(s4,s5,name='Shared 2')
+s4 = npb.ar_spec((7, 5), np.int32, name='S4', order='F')
+s5 = npb.ar_spec((32,), name='S2')
+share2 = npb.sb_node(s4, s5, name='Shared 2')
 sub.add(share2)
 
 #Now because we know subroutine mem can be utilized by shared algo mem
@@ -191,11 +188,11 @@ share1.add(sub)
 #And share1 into Algo
 algo.add(share1)
 
-npb.build_bmap(algo,align=npb.BufferAlign.BYTE) 
+npb.build_bmap(algo, align=npb.BufferAlign.BYTE)
 print(algo.nbytes)
 
-ot=npb.bmap_pyvis(algo,with_offsets=False,)
-ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_distinct.html',notebook=False)
+ot = npb.bmap_pyvis(algo, with_offsets=False, )
+ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_distinct.html', notebook=False)
 ```
 
     1048
@@ -203,4 +200,4 @@ ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_distinct.html
 
 ![distinct](renders/algo_mem_distinct.png)
 
-So far I've been able to represent all memory layouts for any arbitrarily complex routine I've built. You may also find that you can represent the same dependencies using multiple different container arrangements. My theory is that every memory layout is representable with the correct construct, however I'd love to see a counter example.
+So far I've been able to represent all memory layouts for any arbitrarily complex routine. You may also find that you can represent the same dependencies using multiple different container arrangements. My theory is that every memory layout is representable with the correct construct, but I would like to see a counter example.
