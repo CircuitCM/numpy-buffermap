@@ -1,4 +1,3 @@
-#Charles ignore
 .idea
 *.iml
 out
@@ -6,7 +5,16 @@ gen
 **/__pycache__/
 **/*.py[cod]
 venv
+.venv
 testing.ipynb
-##testing.py
-AGENTS.md
-agents.md
+testing.py
+test.ipynb
+test.py
+**/AGENTS.md
+**/agents.md
+**/Agents.md
+Integrations.md
+integrations.md
+*.egg-info/
+dist/
+uv.lock

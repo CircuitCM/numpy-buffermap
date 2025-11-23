@@ -97,7 +97,10 @@ ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_avx5121.html'
 npb.build_bmap(mem_map,align=npb.BufferAlign.PAGE)
 ot=npb.bmap_pyvis(mem_map,with_offsets=True,)
 ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_page1.html',notebook=False)
-#Notes: Larger alignments are already aligned with smaller ones. Multiple distinct arrays that all fit within a single could make sense for multiple large arrays or multiple shared arrays th, but with multiple 
+#Notes: 
+# Larger alignments are already aligned with smaller ones. 
+
+# It's better to fit multiple small arrays into a single page than it is spread them out. For multiple large arrays that surpass page width could be more applicable.
 ```
     
 
