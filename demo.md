@@ -133,9 +133,9 @@ The most obvious example would be allocating work memory in a multi-threaded env
 import bmap as npb
 import numpy as np
 
-d1 = npb.ar_spec((69,), name='D1')  #distinct array 1
+d1 = npb.ar_spec((69,), name='D1')  # distinct array 1
 mem_map = npb.db_node(d1, name='Separate 1')
-#share 1
+# share 1
 s1 = npb.ar_spec((5, 4, 3), name='S1')
 s2 = npb.ar_spec((20,), name='S2')
 share1 = npb.sb_node(s1, s2, name='Shared 1')
@@ -147,8 +147,8 @@ share2 = npb.sb_node(s3, s4, s5, name='Shared 2')
 
 mem_map.add(share1, share2)
 
-npb.build_bmap(mem_map, align=npb.BufferAlign.BYTE)  #to see total bytes comparing example 2 below
-print(mem_map.nbytes)  #Cumulative total number of bytes by default it is avx512 aligned.
+npb.build_bmap(mem_map, align=npb.BufferAlign.BYTE)  # to see total bytes comparing example 2 below
+print(mem_map.nbytes)  # Cumulative total number of bytes by default it is avx512 aligned.
 
 ot = npb.bmap_pyvis(mem_map, with_offsets=False, )
 ot.show('D:/Projects/Repositories/numpy_buffermap/renders/algo_mem_shared.html', notebook=False)
@@ -168,15 +168,15 @@ reused:
 import bmap as npb
 import numpy as np
 
-#Primary Algo
+# Primary Algo
 d1 = npb.ar_spec((69,), name='D1')
 algo = npb.db_node(d1, name='Algo')
-#share 1
+# share 1
 s1 = npb.ar_spec((5, 4, 3), name='S1')
 s2 = npb.ar_spec((20,), name='S2')
 share1 = npb.sb_node(s1, s2, name='Shared 1')
 
-#Subroutine
+# Subroutine
 s3 = npb.ar_spec((5, 3, 2), name='S3')
 sub = npb.db_node(s3, name='Subroutine')
 
@@ -185,10 +185,10 @@ s5 = npb.ar_spec((32,), name='S2')
 share2 = npb.sb_node(s4, s5, name='Shared 2')
 sub.add(share2)
 
-#Now because we know subroutine mem can be utilized by shared algo mem
-#we just need to place it in share1
+# Now because we know subroutine mem can be utilized by shared algo mem
+# we just need to place it in share1
 share1.add(sub)
-#And share1 into Algo
+# And share1 into Algo
 algo.add(share1)
 
 npb.build_bmap(algo, align=npb.BufferAlign.BYTE)

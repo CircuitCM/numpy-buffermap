@@ -7,7 +7,7 @@ gen
 venv
 .venv
 testing.ipynb
-testing.py
+dev.py
 test.ipynb
 testimport.py
 **/AGENTS.md
