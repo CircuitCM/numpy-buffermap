@@ -1,19 +1,42 @@
+from pyvis.network import Network
 import copy
 from collections.abc import Collection
 from functools import partial
-from typing import List, Sequence, Tuple, Union
+from typing import Callable, List, Sequence, Tuple, Union
 
 import numpy as np
 from anytree import NodeMixin, PreOrderIter
 from anytree.exporter import DotExporter
 
-from bmap._nodes import BaseNode, ValueNode, ContainerNode, ArrayNode, ItemNodeT
-from bmap._util import aligned_buffer, buffer_expr, SymExpr, SymSymbol, BufferAlign, c_orlen, BButil, \
-    BufferMap, eval_buff_expr, gen_max, roundup, gen_add, UO, _gao, _sao, dtype_abbr, _chkfalign, _pxpr, _arrpxpr, _bxpr, \
-    _arrbxpr, cse_codereduction, ls_layers
+from bmap._nodes import ArrayNode, BaseNode, ContainerNode, ItemNodeT, ValueNode
+from bmap._util import (
+    UO,
+    BButil,
+    BufferAlign,
+    BufferMap,
+    SymExpr,
+    SymSymbol,
+    _arrbxpr,
+    _arrpxpr,
+    _bxpr,
+    _chkfalign,
+    _gao,
+    _pxpr,
+    _sao,
+    aligned_buffer,
+    buffer_expr,
+    c_orlen,
+    cse_codereduction,
+    dtype_abbr,
+    eval_buff_expr,
+    gen_add,
+    gen_max,
+    ls_layers,
+    roundup,
+)
 
 
-def build_buffer_allocator(buffer_map: ContainerNode, args:Collection=(),kwargs:dict=None,tempvar='t',subname=False,chkforbuffer=True,balign=BufferAlign.PAGE,fullreduce=True):
+def build_buffer_allocator(buffer_map: ContainerNode, args:Collection=(),kwargs:dict=None,tempvar: str='t',subname: bool=False,chkforbuffer: bool=True,balign: int=BufferAlign.PAGE,fullreduce: bool=True) -> str:
     """Builds the string definition of a function that dynamically allocates the arrays and values of a buffer map.
     :param sym_dic: All value
     :param balign: The initial alignment of the buffer. It must be greater than or equal to the alignment you choose to build the buffer_map with.
@@ -76,7 +99,7 @@ def _cxprs(bn:BaseNode, excs=None):
         return excs
     
 
-def _bb2(bnode: BaseNode, exls, subname=False, sn=None, ct=None, mkls=None):
+def _bb2(bnode: BaseNode, exls, subname=False, sn: str | None=None, ct=None, mkls=None):
     wn= mkls is None
     if wn: mkls=([],[])
     if ct is None:ct=[0]
@@ -116,7 +139,7 @@ def _bb2(bnode: BaseNode, exls, subname=False, sn=None, ct=None, mkls=None):
         return ct
     
 
-def _bba(bnode: BaseNode, mkls=None, subname=False, sn=None):
+def _bba(bnode: BaseNode, mkls=None, subname=False, sn: str | None=None):
     wn= mkls is None
     if wn: mkls=([],[])
     ct=isinstance(bnode, ContainerNode)
@@ -177,7 +200,7 @@ def build_bmap(
 # ---------------------------------------------------------------------------
 def _merge_child_into_parent(
     parent: ContainerNode, child: ContainerNode, *, name_join: bool
-):
+) -> None:
     """Move ``child``'s children into ``parent`` (same rule), optionally
     renaming.
 
@@ -269,7 +292,7 @@ def _compute_nbytes(node: BaseNode, align: int = BufferAlign.AVX512,simplify=Tru
 _n_=_compute_nbytes
 
 
-def arrays_map(buffer_map: BaseNode, sym_dic:dict=None,balign=BufferAlign.PAGE,_buffer:np.ndarray=None, _base: int = 0):
+def arrays_map(buffer_map: BaseNode, sym_dic:dict=None,balign: int=BufferAlign.PAGE,_buffer:np.ndarray=None, _base: int = 0) -> None:
     """Inits arrays based off of the buffer map. Arrays are placed within their array node.
     And container nodes receive the buffer subindex range they represent.
     :param balign: The initial alignment of the buffer. It must be greater than or equal to the alignment you choose to build the buffer_map with.
@@ -375,7 +398,7 @@ def items_init(items: Tuple[ItemNodeT]):
 
 
 # ValueNode
-def v_spec(value, name=None):
+def v_spec(value, name=None) -> ValueNode:
     """Wrap a literal value in a :class:`ValueNode` that doesn't use buffer
     bytes.
 
@@ -387,7 +410,7 @@ def v_spec(value, name=None):
 
 # ArrayNode
 def ar_spec(
-    shape=(0,), dtype=np.float64, order="C", init_op=None, name=None, align_ldim=None
+    shape=(0,), dtype=np.float64, order:str="C", init_op:np.ndarray|Callable|None=None, name:str|None=None, align_ldim:str|None=None
 ) -> ArrayNode:
     """Define an :class:`ArrayNode` with optional aligned-leading-dimension.
 
@@ -406,10 +429,10 @@ def f_arspec_i(
     shape=None,
     dtype=None,
     order=None,
-    init_op=UO,
+    init_op: type[object]=UO,
     name=None,
-    align_ldim=UO,
-) -> callable:
+    align_ldim: type[object]=UO,
+) -> Callable:
     """Return a partially-applied constructor for :func:`f_arspec`.
 
     Any field left as ``None``/``UO`` will inherit from the base spec
@@ -470,10 +493,10 @@ def array_arspec(
     shape=None,
     dtype=None,
     order=None,
-    init_op=UO,
+    init_op: type[object]=UO,
     name=None,
-    align_ldim=UO,
-    _aldim_def=BufferAlign.AVX512,
+    align_ldim: type[object]=UO,
+    _aldim_def: int=BufferAlign.AVX512,
 ) -> ArrayNode:
     """Create an Array spec from an existing ndarray, preserving layout.
 
@@ -510,9 +533,9 @@ def ft_arspec(
     shape=None,
     dtype=None,
     order=None,
-    init_op=UO,
+    init_op: type[object]=UO,
     name=None,
-    align_ldim=UO,
+    align_ldim: type[object]=UO,
 ) -> ArrayNode:
     """Return a **transposed** Array spec without changing memory layout.
 
@@ -523,7 +546,7 @@ def ft_arspec(
     rop = rs.init_op
     top = (
         rop.T
-        if isinstance(rs.init_op, np.ndarray)
+        if isinstance(rop, np.ndarray)
         else (lambda ar: rop(ar.T))
         if rop is not None
         else rop
@@ -569,7 +592,7 @@ def db_node(*args, name=None, no_merge=False, align=True) -> ContainerNode:
 
 
 # 7) DOT export
-def _dot_node_attr(node: NodeMixin, *, with_offsets: bool) -> str:
+def _dot_node_attr(node: BaseNode, *, with_offsets: bool) -> str:
     """Generate DOT attributes with name inside node and other info as
     external."""
     # Secondary info for external label (xlabel)
@@ -578,7 +601,7 @@ def _dot_node_attr(node: NodeMixin, *, with_offsets: bool) -> str:
         info_parts.append(f"- {node.label} -")
     if isinstance(node, ArrayNode):
         if node.align_ldim is not None:
-            info_parts.append(f"{node.shape}, {node.vshape}, {dtype_abbr(node.dtype)}")
+            info_parts.append(f"{node.shape}, {node.bshape}, {dtype_abbr(node.dtype)}")
         else:
             info_parts.append(f"{node.shape}, {dtype_abbr(node.dtype)}")
         col = 'color="lime"'
@@ -607,10 +630,10 @@ def _dot_node_attr(node: NodeMixin, *, with_offsets: bool) -> str:
     return ", ".join(parts)
 
 
-def bmap_todot(bmap: NodeMixin, *, with_offsets: bool = True) -> str:
+def bmap_todot(bmap: BaseNode, *, with_offsets: bool = True) -> str:
     """Serialize the tree to Graphviz DOT via
     ``anytree.exporter.DotExporter``."""
-    lines = []
+    lines :list[str] = []
     for line in DotExporter(
         bmap,
         nodenamefunc=lambda n: f"n_{n.id}",
@@ -621,21 +644,21 @@ def bmap_todot(bmap: NodeMixin, *, with_offsets: bool = True) -> str:
 
 
 # 8) PyVis visualiser
-def _bmap_pyvis(src: Union[str, NodeMixin], *, with_offsets: bool = False):
+def _bmap_pyvis(src: Union[str, BaseNode], *, with_offsets: bool = False) -> Network:
     """Internal helper that returns a configured ``pyvis.Network`` graph.
 
     Accepts either a DOT string or a ``ContainerNode``; when given a node,
     converts via ``bmap_todot`` then builds a NetworkX graph using ``pydot``.
     """
     try:
-        from pyvis.network import Network
         import networkx as nx
         import pydot
+        from pyvis.network import Network
     except ImportError as e:
         raise ImportError("pyvis, networkx, pydot required for bmap_pyvis()") from e
     if isinstance(src, str):
         dot_data = src
-    elif isinstance(src, NodeMixin):
+    elif isinstance(src, BaseNode):
         dot_data = bmap_todot(src, with_offsets=with_offsets)
     else:
         raise TypeError("src must be DOT str or ContainerNode")
@@ -678,13 +701,13 @@ _bopt="""{
     }"""
 
 # 8) PyVis visualiser
-def bmap_pyvis(src: Union[str, ContainerNode], with_offsets: bool = False,height='1000px',width='100%',render_options=BMAP_ROPTS):
+def bmap_pyvis(src: Union[str, ContainerNode], with_offsets: bool = False,height: str='1000px',width: str='100%',render_options: str=BMAP_ROPTS) -> Network:
     """Build a PyVis interactive tree using a top-down layout and physics
     enabled."""
     try:
-        from pyvis.network import Network
         import networkx as nx
         import pydot
+        from pyvis.network import Network
     except ImportError as e:
         raise ImportError("pyvis, networkx, pydot required for bmap_pyvis()") from e
 
@@ -765,6 +788,6 @@ def save_bmap_tree(
     return path
 
 
-def clone_bmap(bmap: NodeMixin):
+def clone_bmap(bmap: NodeMixin) -> NodeMixin:
     """Deep-clone an entire buffer-map tree (labels, sizes, offsets, etc.)."""
     return copy.deepcopy(bmap)

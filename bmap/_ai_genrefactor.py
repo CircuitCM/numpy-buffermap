@@ -1,5 +1,7 @@
 
-'''The goal is to **minimize repeated index arithmetic** while preserving exact integer semantics and alignment behavior.
+""""""
+
+"""The goal is to **minimize repeated index arithmetic** while preserving exact integer semantics and alignment behavior.
 
 ---
 
@@ -153,15 +155,13 @@ Before finalizing:
 ## Summary of the “game plan”
 1. Factor core products → 2. Factor padded tiles → 3. Factor max workspace → 4. Factor ceil counts → 5. Apply safe algebraic identities → 6. Verify structure.
 Repeat factoring recursively until no meaningful duplication remains.
-'''
+"""
 
-"""
-- Prefer clear short variable names that encode meaning via pattern:
-  - `mn`, `nz`, `mt1`, `mtz`, `rmz`, `pm`, `mx`, `c1..cN`.
-"""
+
 
 #The result after gpt 5.2 and this prompt.
 import numpy as np
+
 aligned_buffer=lambda x,y: x
 fb_=np.frombuffer
 

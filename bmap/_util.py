@@ -1,8 +1,15 @@
-import importlib
+#ruff: noqa: E731
+
+import importlib.util
 import itertools
-from typing import Any, Sequence
+from types import NoneType
+from typing import Any, Callable, Sequence
 
 import numpy as np
+import sympy as sym
+from sympy.core.expr import Expr
+from sympy.core.symbol import Symbol
+from sympy.printing.str import StrPrinter
 
 if importlib.util.find_spec('numba'):
     from numba.extending import register_jitable
@@ -12,129 +19,113 @@ if importlib.util.find_spec('numba'):
 else:
     def typeof(*args):
         return np.dtype(type(args[0]))
-    rgc=lambda f:f
+    rgc=lambda f:f 
+
+SymSymbol=sym.Symbol
+SymExpr=sym.Expr
+CD_ = sym.Function('cd_')  # ceildiv
+FD_ = sym.Function('fd_')  # floordiv
 
 ### Helpers
 UO =use_other= object()
 _ESET=set()
-HAS_SYM=False
+HAS_SYM=True #dead code, sympy is now required.
 _GB_EXPR={}
+NT=NoneType
 
-SymSymbol=UO
-SymExpr=UO
-CD_ = 'cd_'  # ceildiv
-FD_ = 'fd_' # floordiv
 
-def gen_max(sq,simplify=True):
-    """No sympy version"""
-    return max(*sq)
-def gen_add(sq,simplify=True):
-    return sum(*sq)
+#note sympy is generally not great with integer simplifications but it will take time to figure out a custom method
+#so for now we use this.
+def gen_max(sq,simplify: bool=True) -> sym.Max | int:
+    """General maximum, symbols and values."""
+    mv=sym.Max(*sq)
+    if mv.is_number:
+        return int(mv)
+    elif simplify:
+        return mv#.simplify() #calling simplify solely for the max function but not the expressions might not actually do anything.
+    return mv
 
-def roundup(var,rup):
-    if rup is None or rup<1: return var
-    return ((var + rup - 1) // rup) * rup
+def gen_add(sq: str,simplify: bool=True):
+    """General add, symbols and values."""
+    #it's faster to unload into a single Add expression than it is to +=
+    mv=sym.Add(*sq)
+    if mv.is_number:
+        return int(mv)
+    elif simplify:
+        return mv.factor()#fraction=False,deep=True)#.simplify()
+    return mv
+
+def roundup(var: str,rup):
+    if rup is None or (isinstance(rup,int) and rup<1): return var
+    return sym.ceiling(var/rup)*rup
+
+exec('from sympy import *', _GB_EXPR) #might need less imports than this, see about that later.
+_GB_EXPR['Symbol']=lambda s: sym.Symbol(s, integer=True, positive=True)
+
+
+class GenPrinter(StrPrinter):
+    def _print_Max(self, expr):
+        return "max(%s)" % ", ".join(self._print(a) for a in expr.args)#type: ignore[missing-attribute]
+
+    def _print_floor(self, expr):
+        x = expr.args[0]
+        num, den = x.as_numer_denom()
+        if den != 1 and den.is_integer: #and x.is_rational_function()
+            na,da=num.is_Atom,den.is_Atom
+            num_s = self._print(num) #type: ignore[missing-attribute]
+            den_s = self._print(den)#type: ignore[missing-attribute]
+            match (na, da):
+                case (True, True):   return f"({num_s}//{den_s})"
+                case (False, False): return f"(({num_s})//({den_s}))"
+                case (False, True):  return f"({num_s}//({den_s}))"
+                case (True, False):  return f"(({num_s})//{den_s})"
+
+        # if hasattr(super(),'_print_floor'):
+        #     return super()._print_floor(expr)
+        return super()._print_Function(expr)#type: ignore[missing-attribute]
+        
+    def _print_ceiling(self, expr):
+        x = expr.args[0]
+        num, den = x.as_numer_denom()
+        # Turn ceiling(num/den) into ((num + den - 1)//den) when den is integer-like.
+        if den != 1 and den.is_integer: #and x.is_rational_function()
+            num_s = self._print(num)#type: ignore[missing-attribute]
+            den_s = self._print(den)#type: ignore[missing-attribute]
+            return f"cd_({num_s},{den_s})"
+
+        # if hasattr(super(), '_print_ceiling'):
+        #     return super()._print_ceiling(expr)
+        return super()._print_Function(expr) #type: ignore[missing-attribute]
+    
+    def _print_fd_(self, expr):
+        # expr is fd_(x, y)
+        x, y = expr.args
+    
+        na, da = x.is_Atom, y.is_Atom
+        xs = self._print(x)#type: ignore[missing-attribute]
+        ys = self._print(y)#type: ignore[missing-attribute]
+    
+        # special-case denominator == 1
+        if y.is_number and y == 1:
+            return xs if na else f"({xs})"
+    
+        match (na, da):
+            case (True, True):   return f"({xs}//{ys})"
+            case (False, False): return f"(({xs})//({ys}))"
+            case (False, True):  return f"({xs}//({ys}))"
+            case (True, False):  return f"(({xs})//{ys})"
+    
+    def _print_Function(self, expr):
+        # expr.func is the function, expr is the applied function
+        if expr.func.__name__ == "fd_":
+            return self._print_fd_(expr)
+
+        return super()._print_Function(expr) #type: ignore[missing-attribute]
+
+_gpr=GenPrinter()
 
 def gen_str(expr):
-    return str(expr)
-
-if importlib.util.find_spec('sympy'):
-    HAS_SYM=True
-    import sympy as sym
-    SymSymbol=sym.Symbol
-    SymExpr=sym.Expr
-    CD_ = sym.Function('cd_')  # ceildiv
-    FD_ = sym.Function('fd_')  # floordiv
-    #note sympy is generally not great with integer simplifications but it will take time to figure out a custom method
-    #so for now we use this.
-    def gen_max(sq,simplify=True):
-        """General maximum, symbols and values."""
-        mv=sym.Max(*sq)
-        if mv.is_number:
-            return int(mv)
-        elif simplify:
-            return mv#.simplify() #calling simplify solely for the max function but not the expressions might not actually do anything.
-        return mv
-    
-    def gen_add(sq,simplify=True):
-        """General add, symbols and values."""
-        #it's faster to unload into a single Add expression than it is to +=
-        mv=sym.Add(*sq)
-        if mv.is_number:
-            return int(mv)
-        elif simplify:
-            return mv.factor()#fraction=False,deep=True)#.simplify()
-        return mv
-    
-    def roundup(var,rup):
-        if rup is None or (isinstance(rup,int) and rup<1): return var
-        return sym.ceiling(var/rup)*rup
-    
-    exec('from sympy import *', _GB_EXPR) #might need less imports than this, see about that later.
-    _GB_EXPR['Symbol']=lambda s: sym.Symbol(s, integer=True, positive=True)
-    
-    from sympy.printing.str import StrPrinter
-    class GenPrinter(StrPrinter):
-        
-        def _print_Max(self, expr):
-            return "max(%s)" % ", ".join(self._print(a) for a in expr.args)
-    
-        def _print_floor(self, expr):
-            x = expr.args[0]
-            num, den = x.as_numer_denom()
-            if den != 1 and den.is_integer: #and x.is_rational_function()
-                na,da=num.is_Atom,den.is_Atom
-                num_s = self._print(num)
-                den_s = self._print(den)
-                match (na, da):
-                    case (True, True):   return f"({num_s}//{den_s})"
-                    case (False, False): return f"(({num_s})//({den_s}))"
-                    case (False, True):  return f"({num_s}//({den_s}))"
-                    case (True, False):  return f"(({num_s})//{den_s})"
-    
-            # if hasattr(super(),'_print_floor'):
-            #     return super()._print_floor(expr)
-            return super()._print_Function(expr)
-            
-        def _print_ceiling(self, expr):
-            x = expr.args[0]
-            num, den = x.as_numer_denom()
-            # Turn ceiling(num/den) into ((num + den - 1)//den) when den is integer-like.
-            if den != 1 and den.is_integer: #and x.is_rational_function()
-                num_s = self._print(num)
-                den_s = self._print(den)
-                return f"cd_({num_s},{den_s})"
-    
-            # if hasattr(super(), '_print_ceiling'):
-            #     return super()._print_ceiling(expr)
-            return super()._print_Function(expr)
-        
-        def _print_fd_(self, expr):
-            # expr is fd_(x, y)
-            x, y = expr.args
-        
-            na, da = x.is_Atom, y.is_Atom
-            xs = self._print(x)
-            ys = self._print(y)
-        
-            # special-case denominator == 1
-            if y == 1 or y.is_One:
-                return xs if na else f"({xs})"
-        
-            match (na, da):
-                case (True, True):   return f"({xs}//{ys})"
-                case (False, False): return f"(({xs})//({ys}))"
-                case (False, True):  return f"({xs}//({ys}))"
-                case (True, False):  return f"(({xs})//{ys})"
-    
-    _gpr=GenPrinter()
-    
-    def gen_str(expr):
-        return _gpr.doprint(expr)
-    
-    
-    
-    
+    return _gpr.doprint(expr)
     
 
 class BufferMap:
@@ -214,7 +205,7 @@ def aligned_buffer(n_bytes: int, align: int = BufferAlign.AVX512) -> np.ndarray:
 
     Parameters
     ----------
-    n_bytes : int
+    n_bytes : int 
         Logical size of the returned view (in bytes).
     align : int
         Desired byte alignment (power-of-two is assumed).
@@ -223,10 +214,10 @@ def aligned_buffer(n_bytes: int, align: int = BufferAlign.AVX512) -> np.ndarray:
     offset = (-raw.ctypes.data) & (align - 1)
     return raw[offset : offset + n_bytes]
 
-_SYMCACHE={}
+_SYMCACHE:dict[str,SymExpr]={}
 _CHKEQ=set(' \t\n\r\f\v+-/*^%()[]{}.')
 
-def check_eqstr(st):
+def check_eqstr(st: str) -> bool:
     """Check if equation string.
     
     Assumes input is either symbol or equation str.
@@ -235,11 +226,12 @@ def check_eqstr(st):
         if c in _CHKEQ: return True
     return False
 
-def c_orlen(tgt,mtch):
+def c_orlen(tgt,mtch: str):
+    """Check if the first part of `tgt` matches `mtch`. Which is only possible if `len(tgt)>=len(mtch)`, so it avoid that runtime error."""
     if len(tgt)<len(mtch):return False
     return tgt[:len(mtch)]==mtch
 
-def buffer_expr(sy,warn=True,safe=True):
+def buffer_expr(sy:int|str|SymExpr|None,warn:bool=True,safe=True) -> Expr | Symbol | int | None:
     """Buffer symbol or expression generator with object cache for faster tree operations.
     
     If sy is a string without whitespace, or an existing symbol: Makes a sympy symbol with constraints that are valid for use in dynamic/abstract buffer maps.
@@ -256,51 +248,50 @@ def buffer_expr(sy,warn=True,safe=True):
 
     """
     if isinstance(sy,int) or sy is None: return sy #This allows value negatives which might be intentional. and None is a special return type.
-    if HAS_SYM:
-        if isinstance(sy,str):
-            syc=_SYMCACHE.get(sy,None)
-            if syc is None:
-                if check_eqstr(sy):
-                    #A call to free_symbols is not expensive. but parse_expr and creating symbols individually can be, 
-                    #so we will also cache the symbols from the expression bc they could appear in the propagation.
-                    #note if this comes out anything other than an expression or doesn't have free_symbols it will error.
-                    #Which means symbols need to be a valid string without whitespaces or any other notation.
-                    exp:SymExpr=sym.parse_expr(sy,global_dict=_GB_EXPR)
-                    print(exp)
-                    if exp.is_symbol:
-                        _SYMCACHE[sy]=exp
-                        _SYMCACHE[exp.name]=exp
-                        if warn: print(f'Warning: Buffer Symbol cached under "{sy}" and "{exp.name}", correct symbol formatting does not include extra whitespace or operators.')
-                    else:
-                        _SYMCACHE[sy]=exp
-                        sybs=exp.free_symbols
-                        for syb in sybs:
-                            if syb.name not in _SYMCACHE: _SYMCACHE[syb.name]=syb
-                    return exp
+    if isinstance(sy,str):
+        syc=_SYMCACHE.get(sy,None)
+        if syc is None:
+            if check_eqstr(sy):
+                #A call to free_symbols is not expensive. but parse_expr and creating symbols individually can be, 
+                #so we will also cache the symbols from the expression bc they could appear in the propagation.
+                #note if this comes out anything other than an expression or doesn't have free_symbols it will error.
+                #Which means symbols need to be a valid string without whitespaces or any other notation.
+                exp:SymExpr=sym.parse_expr(sy,global_dict=_GB_EXPR)
+                #print(exp)
+                if isinstance(exp,SymSymbol):
+                    _SYMCACHE[sy]=exp
+                    _SYMCACHE[exp.name]=exp #type: ignore[missing-attribute]
+                    if warn: print(f'Warning: Buffer Symbol cached under "{sy}" and "{exp.name}", correct symbol formatting does not include extra whitespace or operators.') #type: ignore[missing-attribute]
                 else:
-                    _SYMCACHE[sy]=syc= sym.Symbol(sy,integer=True,positive=True)
-                    return syc
+                    _SYMCACHE[sy]=exp
+                    sybs=exp.free_symbols
+                    for syb in sybs:
+                        if syb.name not in _SYMCACHE: _SYMCACHE[syb.name]=syb #type: ignore[missing-attribute]
+                return exp
             else:
+                _SYMCACHE[sy]=syc= sym.Symbol(sy,integer=True,positive=True)
                 return syc
-                
-        #A symbol is an expression, but not all expressions are symbols (e.g. equations that are made of symbols).
-        #So we check if symbol first. might also wanna just return the symbol straight up like exp.
-        #by calling is_symbol this should also help keep errors between sym Basic that will have a bool is_symbol field always and any other
-        #objects that might not.
-        if sy.is_symbol:
-            sn=sy.name
-            syc=_SYMCACHE.get(sn,None)
-            if syc is None:
-                #positive means > 0.
-                _SYMCACHE[sn]=syc= sy if sy.is_integer and sy.is_positive else sym.Symbol(sn,integer=True,positive=True)
+        else:
             return syc
+            
+    #A symbol is an expression, but not all expressions are symbols (e.g. equations that are made of symbols).
+    #So we check if symbol first. might also wanna just return the symbol straight up like exp.
+    #by calling is_symbol this should also help keep errors between sym Basic that will have a bool is_symbol field always and any other
+    #objects that might not.
+    if isinstance(sy,SymSymbol):
+        sn=sy.name
+        syc=_SYMCACHE.get(sn,None)
+        if syc is None:
+            #positive means > 0.
+            _SYMCACHE[sn]=syc= sy if sy.is_Integer and not sy.is_positive else sym.Symbol(sn,integer=True,positive=True) #type: ignore[missing-attribute]
+        return syc
         #Otherwise return the expression, we shouldn't need to cache pre-made expressions because that means the user is making the expression externally first.
         #Also getting the string from an expression is expensive and might not match the original, eg using // instead of floor( ./.).
         #without type checking the class it means the error pop up elsewhere if it implements an is_symbol field, just note that.
-        return sy
-    if safe:
-        raise ImportError(f'Sympy not installed but a dynamic parameter: {sy} was requested.\nPlease install sympy.')
-    else: return sy
+    # if safe:
+    #      raise ImportError(f'Sympy not installed but a dynamic parameter: {sy} was requested.\nPlease install sympy.')
+    # else: 
+    return int(sy) #which will raise if this isn't possible.
 
 
 def mk_buff_dict(dc):
@@ -309,38 +300,38 @@ def mk_buff_dict(dc):
 def bdict(**kwargs):
     return mk_buff_dict(kwargs)
 
-def buffer_symbols(*tgt):
+def buffer_symbols(*tgt) -> Expr | Symbol | int | tuple[Expr | Symbol | int | None, ...] | None:
     """Make buffer symbols in the same way as sym.symbols."""
     if len(tgt)==1: tgt=tgt[0]
     if isinstance(tgt,str) and ' ' in tgt:
-        return (*(buffer_expr(l) for l in tgt.split(' ') if not check_eqstr(l) and l != ''),)
+        return (*(buffer_expr(st) for st in tgt.split(' ') if not check_eqstr(st) and st != ''),)
     return dt_buff_exprs(tgt)
         
 
-def dt_buff_exprs(tgt):
+def dt_buff_exprs(tgt) -> Expr | Symbol | int | tuple[Expr | Symbol | int | None, ...] | None:
     """Ducktape symbols in target, either return as tuple or singular value if not a sequence."""
     if not isinstance(tgt,str) and isinstance(tgt,Sequence):
         return (*(buffer_expr(t) for t in tgt),)
     else:
         return buffer_expr(tgt)
 
-def eval_buff_expr(evt:Any, evd:dict=None):
+def eval_buff_expr(evt:Any, evd:dict|None=None)->int:
     """Evaluate buffer expression or symbol."""
     if type(evt) is int: return evt
-    if not HAS_SYM or evd is None: return int(evt) #which should raise if it can't be turned into an int.
+    if evd is None: return int(evt) #which should raise if it can't be turned into an int.
     if evt.is_symbol: return evd[evt] #assume user correctly adds only ints to evd values
     return int(evt.subs(evd)) #if this doesn't eval to int then it will also correctly raise.
 
-def eval_buff_exprs(evts:Sequence, evd:dict=None):
+def eval_buff_exprs(evts:Sequence, evd:dict|None=None):
     """Evaluate sequence of buffers expression or symbols."""
-    if not HAS_SYM or evd is None: 
+    if evd is None: 
         for evt in evts:
             if type(evt) is not int: raise TypeError(f'Element {evt} is not an integer but integers are required for buffer map specification.')
         return evts
-    return (*(e if type(e) is int else evd[e] if e.is_symbol else int(e.subs(evd)) for e in evts),)
+    return (*(e if type(e) is int else evd[e] if e.is_symbol else int(e.subs(evd)) for e in evts),) 
 
 
-def cf_plcsym(exprs, cd=CD_, fd=FD_):
+def cf_plcsym(exprs:Sequence[sym.Expr], cd:sym.Function=CD_, fd:sym.Function=FD_)->list[sym.Expr]:
     """
     Preprocess expressions:
       ceiling(num/den) -> cd(num, den)
@@ -354,33 +345,33 @@ def cf_plcsym(exprs, cd=CD_, fd=FD_):
         if obj.func is floor or obj.func is ceil:
             num, den = sym.fraction(obj.args[0])
             if den != 1:
-                return fd(num, den) if obj.func is floor else cd(num, den)
+                return fd(num, den) if obj.func is floor else cd(num, den) #type: ignore[not-callable]
         return obj
 
     return [e.replace(lambda obj: obj.func is floor or obj.func is ceil,repl) for e in exprs]
 
 
-def numb_syms(prefix='t',start=0):
+def numb_syms(prefix: str='t',start: int=0):
     while True:
         name = '%s%s' % (prefix, start)
         s = buffer_expr(name,)
         yield s
         start += 1
         
-def is_eqn(expr):
+def is_eqn(expr) -> bool:
     return isinstance(expr,SymExpr) and not expr.is_Atom #or is_symbol but atom probably more correct.
 
 
-def _pxpr(excs,exprs):
+def _pxpr(excs,exprs) -> None:
     if is_eqn(exprs): excs.append(exprs)
     elif isinstance(exprs,(tuple,list)):
         for v in exprs:
             if is_eqn(v): excs.append(v)
             
-def _arrpxpr(excs, exprss):
+def _arrpxpr(excs, exprss) -> None:
     _pxpr(excs,exprss[0])
     _pxpr(excs,exprss[1])
-    if not (exprss[1] is exprss[2]):
+    if exprss[1] is not exprss[2]:
         _pxpr(excs,exprss[2])
     
     
@@ -403,7 +394,7 @@ def _arrbxpr(exls, exprss, ct):
     ot=[]
     ot.append(_bxpr(exls,exprss[0],ct))
     ot.append(t1:=_bxpr(exls,exprss[1],ct))
-    if not (exprss[1] is exprss[2]):
+    if exprss[1] is not exprss[2]:
         ot.append(_bxpr(exls,exprss[2],ct))
     else:
         ot.append(t1)
@@ -417,17 +408,18 @@ class BButil:
     typeref2=lambda t:f'{t[5:]} = nbu.prim_info({t},3)' #for my numba util library
     
     @classmethod
-    def build_header(cls,bmap,args,kwargs,check_alloc='buffer',balign=BufferAlign.PAGE, typebytes:callable=None,ceilref:str=None):
+    def build_header(cls,bmap,args,kwargs,check_alloc: str='buffer',balign: int|SymSymbol=BufferAlign.PAGE, typebytes:Callable|None=None,ceilref:str|None=None) -> str:
         el=not isinstance(balign,int)
-        if isinstance(balign,SymSymbol): balign=balign.name
+        if isinstance(balign,SymSymbol): sbalign=balign.name
+        else: sbalign=balign
         name=bmap.name.lower().replace(' ','_')
-        return f"""def {name}({', '.join(args)}{', '*(len(args)>0)}{', '.join(f'{k}={v}' for k,v in kwargs.items())}{', '*(len(kwargs)>0)}{check_alloc}=None{f', {balign}'*el}):
+        return f"""def {name}({', '.join(args)}{', '*(len(args)>0)}{', '.join(f'{k}={v}' for k,v in kwargs.items())}{', '*(len(kwargs)>0)}{check_alloc}=None{f', {sbalign}'*el}):
     {BButil.add_ceildiv(ceilref)}
     {BButil.add_typeparams(args, kwargs, typebytes)}"""
 
        
     @classmethod
-    def add_typeparams(cls, args, kwargs, tbld=None):
+    def add_typeparams(cls, args, kwargs, tbld=None) -> str:
         if tbld is None: tbld=cls.typeref1
         tb=[tbld(v) for v in args if c_orlen(v,'type_')]
         tb.extend(tbld(v) for v in kwargs.keys() if c_orlen(v,'type_'))
@@ -440,17 +432,17 @@ class BButil:
     ceilref1='cd_ = lambda x, dv: (x + dv - 1)//dv'
     
     @classmethod
-    def add_ceildiv(cls,clrf=None):
+    def add_ceildiv(cls,clrf: str | None=None) -> str:
         if clrf is None:return cls.ceilref1 
         return clrf
     
     @classmethod
-    def add_balloc(cls,alloc_eqn,check_alloc='buffer',alignf='aligned_buffer',balign=BufferAlign.PAGE):
+    def add_balloc(cls,alloc_eqn,check_alloc: str='buffer',alignf: str='aligned_buffer',balign: int=BufferAlign.PAGE) -> str:
         return f'''if {check_alloc} is None:
         {check_alloc} = {alignf}({gen_str(alloc_eqn)}, {balign})'''
 
 
-def ls_layers(layers):
+def ls_layers(layers) -> list[str]:
     """
     Turn layers into python tuple assignment strings:
       w0, w2, ... = expr0, expr2, ...
@@ -464,7 +456,7 @@ def ls_layers(layers):
     lines.append('')
     return lines
 
-def lyr_str_key(lyr):
+def lyr_str_key(lyr: str) -> int:
     #later on change this to an expression "does it contain function" instead of expensive string call.
     s = lyr
     if "cd" in s:
@@ -543,7 +535,7 @@ def post_process_cse(repls, reduced, symbols,  oneassign_del=True, clean_order=T
                 tl=len(ipos)+len(lpos)
                 if tl==1:
                     dg.append(rmi)
-                    print('ipos',len(ipos))
+                    #print('ipos',len(ipos))
                     if len(lpos)==0:
                         rep=ipos[0]
                         reduced[rep]=reduced[rep].xreplace({lysm:lyg[1]})
@@ -581,7 +573,7 @@ def post_process_cse(repls, reduced, symbols,  oneassign_del=True, clean_order=T
 
     return layers,reduced
 
-def cse_codereduction(exprs, prefix='t', optimizations="basic", symbols=numb_syms):
+def cse_codereduction(exprs:Sequence[sym.Expr], prefix:str='t', optimizations: str="basic", symbols=numb_syms):
     exprs_wrapped = cf_plcsym(exprs)
     repls, reduced = sym.cse(exprs_wrapped, symbols=symbols(prefix), optimizations=optimizations)
     layered_assigns,reduced=post_process_cse(repls, reduced, symbols(prefix))
@@ -604,7 +596,7 @@ def _chkfalign(fshape, forder, shape, order, align):
     )
 
 # other
-def _gao(arr):
+def _gao(arr: np.ndarray) -> str:
     """Get array memory order: 'C', 'F', or 'A' (aligned/other)."""
     if arr.flags["C_CONTIGUOUS"]:
         return "C"
@@ -613,7 +605,7 @@ def _gao(arr):
     return "A"
 
 
-def _sao(arr: np.ndarray):
+def _sao(arr: np.ndarray) -> tuple[int, ...] | tuple[str, tuple[int, ...]]:
     """Infer (order, backing-shape) from strides for aligned buffers.
 
     Returns

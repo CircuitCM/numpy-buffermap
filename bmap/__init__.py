@@ -39,9 +39,47 @@ preorder.
 
 
 
-from . import _util as _ #load it up
-from ._util import BufferMap #rename to ContainerType
-from ._util import BufferAlign, NativeTypes, aligned_buffer, c_orlen,buffer_expr,mk_buff_dict,bdict,buffer_symbols,dt_buff_exprs, eval_buff_exprs, eval_buff_expr, is_eqn, BButil, cse_codereduction
-from ._nodes import BaseNode,ValueNode,ArrayNode,ContainerNode,ItemNodeT
-from ._procedures import build_buffer_allocator, build_bmap, arrays_map, bmap_get,build_flatmap, oneshot_args, v_spec, ar_spec, f_arspec_i, f_arspec, array_arspec, ft_arspec, sb_node, db_node, bmap_pyvis, save_bmap_tree, clone_bmap 
+from . import _util as _  #load it first
+from ._nodes import ArrayNode, BaseNode, ContainerNode, ItemNodeT, ValueNode
+from ._procedures import (
+    ar_spec,
+    array_arspec,
+    arrays_map,
+    bmap_get,
+    bmap_pyvis,
+    build_bmap,
+    build_buffer_allocator,
+    build_flatmap,
+    clone_bmap,
+    db_node,
+    f_arspec,
+    f_arspec_i,
+    ft_arspec,
+    oneshot_args,
+    save_bmap_tree,
+    sb_node,
+    v_spec,
+)
+from ._util import (
+    BButil,
+    BufferAlign,
+    BufferMap,  #rename to ContainerType
+    NativeTypes,
+    SymExpr,
+    SymSymbol,
+    aligned_buffer,
+    bdict,
+    buffer_expr,
+    buffer_symbols,
+    c_orlen,
+    cse_codereduction,
+    dt_buff_exprs,
+    eval_buff_expr,
+    eval_buff_exprs,
+    gen_add,
+    gen_max,
+    is_eqn,
+    mk_buff_dict,
+    numb_syms,
+)
 #update build_flatmap, oneshot_args, flat_inits, 

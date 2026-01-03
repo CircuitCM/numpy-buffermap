@@ -1,15 +1,32 @@
 # from collections.abc import Collection
 # from functools import cache
 
-from typing import Sequence, Union, Optional
+import math as mt
+from itertools import chain
+from numbers import Number
+from types import NoneType
+from typing import Optional, Sequence, Union, override
 
 import numpy as np
-from anytree import NodeMixin,LightNodeMixin, RenderTree, DoubleStyle
-from itertools import chain
-import math as mt
-from numbers import Number
-from bmap._util import _IDGen, _ESET, gen_str, buffer_expr, SymExpr, roundup, dt_buff_exprs, eval_buff_exprs, \
-    BufferMap, eval_buff_expr, c_orlen, BufferAlign
+from anytree import DoubleStyle, LightNodeMixin, NodeMixin, RenderTree
+from sympy.core.expr import Expr
+from sympy.core.symbol import Symbol
+
+from bmap._procedures import build_bmap, flat_inits
+from bmap._util import (
+    _ESET,
+    BufferAlign,
+    BufferMap,
+    SymExpr,
+    _IDGen,
+    buffer_expr,
+    c_orlen,
+    dt_buff_exprs,
+    eval_buff_expr,
+    eval_buff_exprs,
+    gen_str,
+    roundup,
+)
 
 
 class BaseNode(NodeMixin):
@@ -46,19 +63,19 @@ class BaseNode(NodeMixin):
         return self.label or str(self.id)
 
     @property
-    def name(self):
+    def name(self) -> str | None:
         return self.label
 
     @name.setter
-    def name(self, name):
+    def name(self, name) -> None:
         self.label = name
 
     @name.deleter
-    def name(self):
+    def name(self) -> None:
         del self.label
     
     
-    def gen_call(self,*args,**kwargs):
+    def gen_call(self,*args,**kwargs) -> tuple[str, str]:
         """This was previously called gen_def, now it defines it's string definition, based on certain modified dependents.
         
         This will emit the defining string of the representation in the code defining generator.
@@ -70,11 +87,11 @@ class BaseNode(NodeMixin):
         #subn : sub-name for use in extending the name of the parameter eg containername_varname
         istr='#The assignment/initializer codeline.'
         rstr='#The return statement/reference within the return line.'
-        raise NotImplementedError
+        return istr,rstr
     
     def sym_def(self):
         """Returns the sequence of node objects that are dependent on the node's procedural generation and simplification by cse in sympy."""
-        return None
+        raise NotImplementedError
     
     def free_symbols(self):
         """If sympy is installed this is an api to return all used symbols within the node."""
@@ -97,12 +114,13 @@ class ValueNode(BaseNode):
         self.value = buffer_expr(value,safe=False)
 
     @property
-    def vtype(self):
+    def vtype(self) -> type[Expr] | type[NoneType] | type[Symbol] | type[int]:
         return type(self.value)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"|Value {self._short()} {repr(self.value)[:50]} {self.vtype}|"
     
+    @override
     def gen_call(self,valexpr=None, subn=None):
         if valexpr is None: valexpr = self.value
         vg=gen_str(valexpr) if isinstance(valexpr,SymExpr) else valexpr
@@ -114,7 +132,8 @@ class ValueNode(BaseNode):
             rstr=vg #we don't assign and go straight to the return
         return istr,rstr
     
-    def sym_def(self):
+    @override
+    def sym_def(self) -> Expr | Symbol | int | None:
         return self.value
     
     @property
@@ -137,13 +156,11 @@ class ArrayNode(BaseNode):
     - ``init_op`` can be a scalar, an ndarray (copied/viewed), or a callable
       that receives the newly created array for in-place initialization.
     """
-    
-    
 
     def __init__(
         self,
         shape: Union[int, Sequence[int]] = (0,),
-        dtype: np.dtype|np.generic = np.float64,
+        dtype: np.dtype|np.generic = np.float64, #type: ignore[bad-function-definition]
         order: str = "C",
         init_op: Optional[Union[int, float, np.ndarray, callable]] = None,
         name: Optional[Union[str, int, float]] = None,
@@ -151,12 +168,12 @@ class ArrayNode(BaseNode):
     ) -> None:
         super().__init__(name=name, no_merge=True)
         s = dt_buff_exprs((shape,) if isinstance(shape, int) else shape)
-        self.shape: Sequence[int|SymExpr, ...] = s
+        self.shape: Sequence[int|SymExpr] = s
         self.dtype: np.dtype|SymExpr
-        self.bshape: Sequence[int|SymExpr, ...]
+        self.bshape: Sequence[int|SymExpr]
         self.array: Optional[np.ndarray] = None
         self.barray: Optional[np.ndarray]
-        self.align_ldim: int|Sequence[int|SymExpr, ...] = dt_buff_exprs(align_ldim)
+        self.align_ldim: int|Sequence[int|SymExpr] = dt_buff_exprs(align_ldim)
         if isinstance(dtype, type) and issubclass(dtype,(np.generic,Number)):dtype=np.dtype(dtype)
         if isinstance(dtype,np.dtype):
             self.dtype = dtype #np.dtype(dtype)
@@ -189,14 +206,14 @@ class ArrayNode(BaseNode):
         #likely
         self.nbytes: int|SymExpr = mt.prod(self.bshape) * self.itsize
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         shp = ", ".join(map(str, self.shape))
         if self.shape != self.bshape:
             bshp = ", ".join(map(str, self.bshape))
             return f"|Array {self._short()} ({bshp}) ({shp}) {self.dtype}|"
         return f"|Array {self._short()} ({shp}) {self.dtype}|"
 
-    def _rinit(self):
+    def _rinit(self) -> None:
         """Apply ``init_op`` to ``self.array`` if provided.
 
         - If ``init_op`` is callable, it is invoked with the array for in-place
@@ -258,13 +275,13 @@ class ArrayNode(BaseNode):
         return self.array
     
     @staticmethod
-    def array_genc(offstr,dtstr,dmstr,ord):
+    def array_genc(offstr,dtstr,dmstr,ord: str) -> str:
         return f'fb_(buffer[:{offstr}],{dtstr}).reshape({dmstr}){"" if ord=="C" else ".T"}'
     
     npspec='np.'
             
     
-    def gen_call(self,bytexpr=None,bshapet=None,shapet=None,subn=None):
+    def gen_call(self,bytexpr=None,bshapet=None,shapet=None,subn=None) -> tuple[str, str]:
         """Generate string definition of array from symbolics or value."""
         if not subn and not self.name: raise NameError('Arrays without name or sub name are not supported.')
         st=self._short() #name first, if fails falls back to an integer counter (not related to container position)
@@ -284,11 +301,11 @@ class ArrayNode(BaseNode):
             #so do it at the function formatting scope.
         return istr,rstr
     
-    def sym_def(self):
+    def sym_def(self) -> tuple[Expr | int, Sequence[Expr | int], Sequence[Expr | int]]:
         return self.nbytes, self.bshape, self.shape
     
     @property
-    def free_symbols(self):
+    def free_symbols(self) -> set[Expr]:
         """If sympy is installed this is an api to return all used symbols within the node."""
         fs=set()
         #itsize=symbol_ref is a special cased derived from type_{symbol_ref}'s so it won't go in the function header
@@ -451,11 +468,11 @@ class ContainerNode(BaseNode):
         return flat_inits(self)
     
     @staticmethod
-    def s_def(syq):
+    def s_def(syq) -> str:
         ols=gen_str(syq)
         return f'buffer = buffer[{ols}:]'
     
-    def gen_call(self,setexpr=None, subn=None):
+    def gen_call(self,setexpr=None, subn=None) -> tuple[str, None] | tuple[tuple[str, ...], None]:
         """See BaseNode docstring."""
         if self.align:
             if setexpr is None: setexpr = self.aligned_eqns
@@ -468,10 +485,10 @@ class ContainerNode(BaseNode):
         return self.aligned_eqns if self.align else self.nbytes
 
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"|Node {self._short()} rule={'S' if self.rule == BufferMap.SHARED else 'D'} children={len(self.children)} {f'nbytes={self.nbytes}'if hasattr(self,'nbytes') else ''}|"
 
-    def __str__(self):
+    def __str__(self) -> str:
         v = str(RenderTree(self, style=DoubleStyle))
         return v
     
