@@ -1,0 +1,18 @@
+[build-system] 
+requires = ["hatchling"] 
+build-backend = "hatchling.build" 
+ 
+[project] 
+name = "bmap"
+version = "0.0.1"
+requires-python = ">=3.12"
+authors = [{ name = "Charles Marks", email = "charlesmarksco@gmail.com" }]
+readme = "README.md" 
+license = { file = "LICENSE" } 
+classifiers = ["License :: OSI Approved :: MIT License"]
+dependencies = [
+    "anytree>=2.13.0",
+    "numpy<2",
+    "pyvis>=0.3.2",
+    "sympy>=1.14.0",
+]
