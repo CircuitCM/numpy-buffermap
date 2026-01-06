@@ -1,5 +1,6 @@
 
-""""""
+"""This is a deprecated LLM strategy that reduces the raw form of the generated allocators. `post_process_cse` now does 
+this programmatically through sympy reductions for a certainly correct result"""
 
 """The goal is to **minimize repeated index arithmetic** while preserving exact integer semantics and alignment behavior.
 

@@ -7,8 +7,6 @@ from typing import Any, Callable, Sequence
 
 import numpy as np
 import sympy as sym
-from sympy.core.expr import Expr
-from sympy.core.symbol import Symbol
 from sympy.printing.str import StrPrinter
 
 if importlib.util.find_spec('numba'):
@@ -231,7 +229,7 @@ def c_orlen(tgt,mtch: str):
     if len(tgt)<len(mtch):return False
     return tgt[:len(mtch)]==mtch
 
-def buffer_expr(sy:int|str|SymExpr|None,warn:bool=True,safe=True) -> Expr | Symbol | int | None:
+def buffer_expr(sy:int|str|SymExpr|None,warn:bool=True,safe=True) -> sym.Expr | sym.Symbol | int | None:
     """Buffer symbol or expression generator with object cache for faster tree operations.
     
     If sy is a string without whitespace, or an existing symbol: Makes a sympy symbol with constraints that are valid for use in dynamic/abstract buffer maps.
@@ -300,7 +298,7 @@ def mk_buff_dict(dc):
 def bdict(**kwargs):
     return mk_buff_dict(kwargs)
 
-def buffer_symbols(*tgt) -> Expr | Symbol | int | tuple[Expr | Symbol | int | None, ...] | None:
+def buffer_symbols(*tgt) -> sym.Expr | sym.Symbol | int | tuple[sym.Expr | sym.Symbol | int | None, ...] | None:
     """Make buffer symbols in the same way as sym.symbols."""
     if len(tgt)==1: tgt=tgt[0]
     if isinstance(tgt,str) and ' ' in tgt:
@@ -308,7 +306,7 @@ def buffer_symbols(*tgt) -> Expr | Symbol | int | tuple[Expr | Symbol | int | No
     return dt_buff_exprs(tgt)
         
 
-def dt_buff_exprs(tgt) -> Expr | Symbol | int | tuple[Expr | Symbol | int | None, ...] | None:
+def dt_buff_exprs(tgt) -> sym.Expr | sym.Symbol | int | tuple[sym.Expr | sym.Symbol | int | None, ...] | None:
     """Ducktape symbols in target, either return as tuple or singular value if not a sequence."""
     if not isinstance(tgt,str) and isinstance(tgt,Sequence):
         return (*(buffer_expr(t) for t in tgt),)
