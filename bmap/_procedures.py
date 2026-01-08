@@ -1,7 +1,7 @@
 import copy
 from collections.abc import Collection
 from functools import partial
-from typing import Any, Callable, List, Sequence, Tuple, Union, cast
+from typing import Any, Callable, List, Sequence, Tuple, TypeGuard, Union
 
 import numpy as np
 import sympy as sym
@@ -20,8 +20,12 @@ from bmap._util import (
     BuffExprMaybe,
     DTypeLike,
     InitOp,
+    InitParam,
     ShapeLike,
+    ShapeParam,
     SizeExpr,
+    SymbolKey,
+    UseOther,
     _arrbxpr,
     _arrpxpr,
     _bxpr,
@@ -45,16 +49,18 @@ from bmap._util import (
 
 def build_buffer_allocator(
     buffer_map: ContainerNode,
-    args: Collection[sym.Symbol | str] = (),
-    kwargs: dict[sym.Symbol | str, SizeExpr] | None = None,
+    args: Collection[SymbolKey] = (),
+    kwargs: dict[SymbolKey, SizeExpr] | None = None,
     tempvar: str = "t",
     subname: bool = False,
     chkforbuffer: bool = True,
     balign: SizeExpr = BufferAlign.PAGE,
     fullreduce: bool = True,
 ) -> str:
-    """Builds the string definition of a function that dynamically allocates the arrays and values of a buffer map.
-    :param sym_dic: All value
+    """
+    Builds the string definition of a function that dynamically allocates the arrays and values of a buffer map.
+
+    :param buffer_map: Original buffer map.
     :param balign: The initial alignment of the buffer. It must be greater than or equal to the alignment you choose to build the buffer_map with.
     """
     # make sure sym_dic is using symbols, so for user it's ok to specify them with string keys
@@ -70,35 +76,44 @@ def build_buffer_allocator(
     # for now there is also no dead-parameter/dead-code removal, and no checks for if all used input parameters are referenced in the header
     if chkforbuffer:
         hd = BButil.build_header(buffer_map, args, kwargs, balign=balign)
-        allq, ct = [buffer_map.nbytes], [1]
+        assert buffer_map.nbytes is not None
+        allq: list[SizeExpr] = [buffer_map.nbytes]
+        ct = [1]
     else:
         hd = BButil.build_header(buffer_map, args, kwargs, check_alloc=None, balign=balign)
-        allq, ct = [], [0]
+        allq = []
+        ct = [0]
 
     if fullreduce:
         allq.extend(_cxprs(buffer_map))  # already 'least expressions' form.
         if buffer_map.rule == BufferMap.DISTINCT:
             allq.pop()  # if initial buffer node is distinct we don't need the
-        lyrs, reduc = cse_codereduction(cast(Sequence[sym.Expr], allq), tempvar)
+        lyrs, reduc = cse_codereduction(allq, tempvar)
         strl = ls_layers(lyrs)
         allc = (BButil.add_balloc(reduc[0]),) if chkforbuffer else ()
-        mkls = cast(tuple[list[str], list[str]], _bb2(buffer_map, reduc, subname=subname, ct=ct))
+        mkls = _bb2(buffer_map, reduc, subname=subname, ct=ct)
         mdst = "\n".join(mkls[0])
         mdst = mdst.replace("\n", "\n    ")  # in case there are multi-line statements
-        estr = f"return {', '.join(mkls[1])}"
+        estr = f"return {', '.join(str(v) for v in mkls[1])}"
     else:
         # no reduction is quicker but also much more ugly and less readable.
-        mkls = cast(tuple[list[str], list[str]], _bba(buffer_map, subname=subname))
+        mkls = _bba(buffer_map, subname=subname)
         if buffer_map.rule == BufferMap.DISTINCT:
             mkls[0].pop()
         strl = ()
         allc = (BButil.add_balloc(allq[0]),) if chkforbuffer else ()
         mdst = "\n".join(mkls[0])
         mdst = mdst.replace("\n", "\n    ")  # in case there are multi-line statements
-        estr = f"return {', '.join(mkls[1])}"
+        estr = f"return {', '.join(str(v) for v in mkls[1])}"
 
     fullf = "\n    ".join((hd, *strl, *allc, mdst, "", estr))
     return fullf
+
+
+def _is_shape_tuple(
+    value: tuple[int, ...] | tuple[str, tuple[int, ...]],
+) -> TypeGuard[tuple[int, ...]]:
+    return not (value and isinstance(value[0], str))
 
 
 def _cxprs(bn: BaseNode, excs: list[sym.Expr] | None = None) -> list[sym.Expr]:
@@ -107,8 +122,7 @@ def _cxprs(bn: BaseNode, excs: list[sym.Expr] | None = None) -> list[sym.Expr]:
         excs = []
     if isinstance(bn, ContainerNode) and bn.rule == BufferMap.DISTINCT:
         if bn.align:
-            eqs = cast(Sequence[SizeExpr], bn.sym_def())
-            for c, eq in zip(bn.children, eqs, strict=False):
+            for c, eq in zip(bn.children, bn.aligned_eqns, strict=False):
                 _cxprs(c, excs)
                 _pxpr(excs, eq)
         else:
@@ -126,82 +140,104 @@ def _cxprs(bn: BaseNode, excs: list[sym.Expr] | None = None) -> list[sym.Expr]:
     return excs
 
 
-def _bb2(bnode: BaseNode, exls, subname=False, sn: str | None = None, ct=None, mkls=None):
-    wn = mkls is None
-    if wn:
+def _bb2(
+    bnode: BaseNode,
+    exls: Sequence[SizeExpr],
+    subname: bool = False,
+    sn: str | None = None,
+    ct: list[int] | None = None,
+    mkls: tuple[list[str], list[str | int | float]] | None = None,
+) -> tuple[list[str], list[str | int | float]]:
+    is_root = mkls is None
+    if mkls is None:
         mkls = ([], [])
     if ct is None:
         ct = [0]
-    ctt = isinstance(bnode, ContainerNode)
-    if ctt and bnode.rule == BufferMap.DISTINCT:
-        mkls[0].append("")
-        bc = bnode.children
-        bcl = len(bc) - 1
-        if bnode.align:
-            eqs = cast(Sequence[SizeExpr], bnode.sym_def())
-            for i, (c, eq) in enumerate(zip(bc, eqs, strict=False)):
-                _bb2(c, exls, subname, bnode.name, ct, mkls)
-                if i == bcl and wn:
-                    break  # so we don't run into exls that is too far extended
-                ot = _bxpr(exls, eq, ct)
-                mkls[0].append(ContainerNode.s_def(ot))
+    if isinstance(bnode, ContainerNode):
+        if bnode.rule == BufferMap.DISTINCT:
+            mkls[0].append("")
+            bc = bnode.children
+            bcl = len(bc) - 1
+            if bnode.align:
+                eqs = bnode.aligned_eqns
+                for i, (c, eq) in enumerate(zip(bc, eqs, strict=False)):
+                    _bb2(c, exls, subname, bnode.name, ct, mkls)
+                    if i == bcl and is_root:
+                        break  # so we don't run into exls that is too far extended
+                    ot = _bxpr(exls, eq, ct)
+                    mkls[0].append(ContainerNode.s_def(ot))
+            else:
+                for i, c in enumerate(bc):
+                    _bb2(c, exls, subname, bnode.name, ct, mkls)
+                    if i == bcl and is_root:
+                        break  # so we don't run into exls that is too far extended
+                    ot = _bxpr(exls, c.nbytes, ct)
+                    mkls[0].append(ContainerNode.s_def(ot))
         else:
-            for i, c in enumerate(bc):
+            mkls[0].append("")
+            for c in bnode.children:
                 _bb2(c, exls, subname, bnode.name, ct, mkls)
-                if i == bcl and wn:
-                    break  # so we don't run into exls that is too far extended
-                ot = _bxpr(exls, c.nbytes, ct)
-                mkls[0].append(ContainerNode.s_def(ot))
-    elif ctt:
-        mkls[0].append("")
-        for c in bnode.children:
-            _bb2(c, exls, subname, bnode.name, ct, mkls)
     else:
         st = (None, None)
         if isinstance(bnode, ArrayNode):
-            st = bnode.gen_call(*_arrbxpr(exls, bnode.sym_def(), ct), subn=sn if subname else None)
+            bytexpr, bshapet, shapet = _arrbxpr(exls, bnode.sym_def(), ct)
+            st = bnode.gen_call(
+                bytexpr=bytexpr,
+                bshape=bshapet,
+                shape=shapet,
+                subn=sn if subname else None,
+            )
         elif isinstance(bnode, ValueNode):
-            st = bnode.gen_call(_bxpr(exls, bnode.sym_def(), ct), subn=sn if subname else None)
+            valexpr = _bxpr(exls, bnode.sym_def(), ct)
+            if valexpr is not None and not isinstance(valexpr, (sym.Expr, int)):
+                raise TypeError("ValueNode expression must be a scalar.")
+            st = bnode.gen_call(
+                valexpr=valexpr,
+                subn=sn if subname else None,
+            )
 
         if st[0] is not None:
             mkls[0].append(st[0])
         if st[1] is not None:
             mkls[1].append(st[1])
 
-    if wn:
-        return mkls
-    else:
-        return ct
+    return mkls
 
 
-def _bba(bnode: BaseNode, mkls=None, subname=False, sn: str | None = None):
-    wn = mkls is None
-    if wn:
+def _bba(
+    bnode: BaseNode,
+    mkls: tuple[list[str], list[str | int | float]] | None = None,
+    subname: bool = False,
+    sn: str | None = None,
+) -> tuple[list[str], list[str | int | float]]:
+    if mkls is None:
         mkls = ([], [])
-    ct = isinstance(bnode, ContainerNode)
-    if ct and bnode.rule == BufferMap.DISTINCT:
+    if isinstance(bnode, ContainerNode):
         mkls[0].append("")
-        if bnode.align:
-            for c, eq in zip(bnode.children, bnode.gen_call(subn=sn if subname else None)[0], strict=False):
-                _bba(c, mkls, subname, bnode.name)
-                mkls[0].append(eq)
+        if bnode.rule == BufferMap.DISTINCT:
+            if bnode.align:
+                defs, _ = bnode.gen_call()
+                for c, eq in zip(bnode.children, defs, strict=False):
+                    _bba(c, mkls, subname, bnode.name)
+                    mkls[0].append(eq)
+            else:
+                for c in bnode.children:
+                    _bba(c, mkls, subname, bnode.name)
+                    mkls[0].append(ContainerNode.s_def(c.nbytes))
         else:
             for c in bnode.children:
                 _bba(c, mkls, subname, bnode.name)
-                mkls[0].append(ContainerNode.s_def(c.nbytes))
     else:
-        if ct:
-            mkls[0].append("")
-        for c in bnode.children:
-            _bba(c, mkls, subname, bnode.name)
-        if not ct:
+        st = (None, None)
+        if isinstance(bnode, ArrayNode):
             st = bnode.gen_call(subn=sn if subname else None)
-            if st[0] is not None:
-                mkls[0].append(st[0])
-            if st[1] is not None:
-                mkls[1].append(st[1])
-    if wn:
-        return mkls
+        elif isinstance(bnode, ValueNode):
+            st = bnode.gen_call(subn=sn if subname else None)
+        if st[0] is not None:
+            mkls[0].append(st[0])
+        if st[1] is not None:
+            mkls[1].append(st[1])
+    return mkls
 
 
 def build_bmap(
@@ -216,7 +252,7 @@ def build_bmap(
 
     Parameters
     ----------
-    align : int
+    align : int | sym.Expr
         Global alignment used during size rounding and offset assignment.
     name_join : bool
         When merging like-ruled containers, prefix child labels with the parent
@@ -292,13 +328,14 @@ def _compute_nbytes(
         _symbols = set()
     align_expr = buffer_expr(align)
     if isinstance(node, ValueNode):
-        _symbols.update(node.free_symbols)
+        _symbols.update(s for s in node.free_symbols if isinstance(s, sym.Symbol))
         return 0
     if isinstance(node, ArrayNode):
-        _symbols.update(node.free_symbols)
-        return cast(SizeExpr, node.nbytes)
+        _symbols.update(s for s in node.free_symbols if isinstance(s, sym.Symbol))
+        assert node.nbytes is not None
+        return node.nbytes
     # compute child sizes
-    node = cast(ContainerNode, node)
+    assert isinstance(node, ContainerNode)
     if node.rule == BufferMap.SHARED:
         sizes = (*(_n_(ch, align, simplify, _symbols) for ch in node.children),)
         raw = gen_max(sizes, simplify) if sizes else 0
@@ -328,7 +365,8 @@ def _compute_nbytes(
             sizes = (*(_n_(ch, align, simplify, _symbols) for ch in node.children),)
             raw = gen_add(sizes, simplify) if sizes else 0
             node.nbytes = roundup(raw, align_expr)
-    return cast(SizeExpr, node.nbytes)
+    assert node.nbytes is not None
+    return node.nbytes
 
 
 _n_ = _compute_nbytes
@@ -336,7 +374,7 @@ _n_ = _compute_nbytes
 
 def arrays_map(
     buffer_map: BaseNode,
-    sym_dic: dict[sym.Symbol | str, int] | None = None,
+    sym_dic: dict[SymbolKey, int] | None = None,
     balign: SizeExpr = BufferAlign.PAGE,
     _buffer: np.ndarray | None = None,
     _base: int = 0,
@@ -348,7 +386,14 @@ def arrays_map(
     # make sure sym_dic is using symbols, so for user it's ok to specify them with string keys
     if sym_dic is None:
         sym_dic = {}
-    sym_map: dict[sym.Symbol, int] = {cast(sym.Symbol, buffer_expr(k)): v for k, v in sym_dic.items()}
+    sym_map: dict[sym.Symbol, int] = {}
+    for k, v in sym_dic.items():
+        if isinstance(k, sym.Symbol):
+            sym_map[k] = v
+        else:
+            sym_key = buffer_expr(k)
+            assert isinstance(sym_key, sym.Symbol)
+            sym_map[sym_key] = v
     # make a buffer if none was provided
     if _buffer is None:
         _buffer = aligned_buffer(eval_buff_expr(buffer_map.nbytes, sym_dic), balign)
@@ -357,7 +402,7 @@ def arrays_map(
 
 def allocate_bmap(
     bmap: BaseNode,
-    sym_dic: dict[sym.Symbol | str, int] | None = None,
+    sym_dic: dict[SymbolKey, int] | None = None,
     balign: SizeExpr = BufferAlign.PAGE,
     buffer: np.ndarray | None = None,
 ) -> BaseNode:
@@ -505,9 +550,9 @@ def f_arspec_i(
     shape: ShapeLike | None = None,
     dtype: DTypeLike | None = None,
     order: str | None = None,
-    init_op: InitOp | object = UO,
+    init_op: InitParam = UO,
     name: str | None = None,
-    align_ldim: ShapeLike | object = UO,
+    align_ldim: ShapeParam = UO,
 ) -> Callable[..., ArrayNode]:
     """Return a partially-applied constructor for :func:`f_arspec`.
 
@@ -538,9 +583,9 @@ def f_arspec(
     shape: ShapeLike | None = None,
     dtype: DTypeLike | None = None,
     order: str | None = None,
-    init_op: InitOp | object = UO,
+    init_op: InitParam = UO,
     name: str | None = None,
-    align_ldim: ShapeLike | object = UO,
+    align_ldim: ShapeParam = UO,
 ) -> ArrayNode:
     """Clone an :class:`ArrayNode` spec, overriding selected fields.
 
@@ -552,20 +597,26 @@ def f_arspec(
     if not isinstance(rs, ArrayNode):
         raise ValueError("`f_arspec` only takes ArrayNode for `arspec`.")
     spc_align = _chkfalign(rs.shape, rs.order, shape, order, align_ldim)
-    align_ldim = None if align_ldim is UO else align_ldim
+    if isinstance(align_ldim, UseOther):
+        align_ldim_val: ShapeLike | None = None
+    else:
+        align_ldim_val = align_ldim
     sshape = rs.shape if shape is None else shape
     ddtype = rs.dtype if dtype is None else dtype
     oorder = rs.order if order is None else order
-    iinit_op = rs.init_op if init_op is UO else init_op
-    aalign_ldim = rs.bshape if spc_align else align_ldim
+    if isinstance(init_op, UseOther):
+        iinit_op: InitOp | None = rs.init_op
+    else:
+        iinit_op = init_op
+    aalign_ldim: ShapeLike | None = rs.bshape if spc_align else align_ldim_val
     nname = name
     return ar_spec(
         sshape,
         ddtype,
         oorder,
-        cast(InitOp | None, iinit_op),
+        iinit_op,
         nname,
-        cast(ShapeLike | None, aalign_ldim),
+        aalign_ldim,
     )
 
 
@@ -574,9 +625,9 @@ def array_arspec(
     shape: ShapeLike | None = None,
     dtype: DTypeLike | None = None,
     order: str | None = None,
-    init_op: InitOp | object = UO,
+    init_op: InitParam = UO,
     name: str | None = None,
-    align_ldim: ShapeLike | object = UO,
+    align_ldim: ShapeParam = UO,
     _aldim_def: int = BufferAlign.AVX512,
 ) -> ArrayNode:
     """Create an Array spec from an existing ndarray, preserving layout.
@@ -595,24 +646,31 @@ def array_arspec(
             bshape = sao[1]
         else:
             torder = "C"
-            bshape = cast(tuple[int, ...], sao)
-        if not (nr or order == torder) and align_ldim is UO:
+            assert _is_shape_tuple(sao)
+            bshape = sao
+        if not (nr or order == torder) and isinstance(align_ldim, UseOther):
             align_ldim = None
-    elif align_ldim is UO:
+    elif isinstance(align_ldim, UseOther):
         align_ldim = None
     if nr:
         order = torder
-    if not (shape is None or shape == arr.shape) and align_ldim is UO:
+    if not (shape is None or shape == arr.shape) and isinstance(align_ldim, UseOther):
         align_ldim = None
-    if align_ldim is UO:
-        align_ldim = bshape if bshape is not None else arr.shape
+    if isinstance(align_ldim, UseOther):
+        align_ldim_val: ShapeLike | None = bshape if bshape is not None else arr.shape
+    else:
+        align_ldim_val = align_ldim
+    if isinstance(init_op, UseOther):
+        init_val: InitOp | None = arr
+    else:
+        init_val = init_op
     return ar_spec(
         arr.shape if shape is None else shape,
         arr.dtype if dtype is None else dtype,
         order,
-        cast(InitOp | None, arr if init_op is UO else init_op),
+        init_val,
         name,
-        cast(ShapeLike | None, align_ldim),
+        align_ldim_val,
     )
 
 
@@ -621,9 +679,9 @@ def ft_arspec(
     shape: ShapeLike | None = None,
     dtype: DTypeLike | None = None,
     order: str | None = None,
-    init_op: InitOp | object = UO,
+    init_op: InitParam = UO,
     name: str | None = None,
-    align_ldim: ShapeLike | object = UO,
+    align_ldim: ShapeParam = UO,
 ) -> ArrayNode:
     """Return a **transposed** Array spec without changing memory layout.
 
@@ -766,7 +824,7 @@ def _bmap_pyvis(src: Union[str, BaseNode], *, with_offsets: bool = False) -> Net
     if not graphs:
         raise ValueError("Failed to parse DOT data")
     pgraph = graphs[0]
-    g_nx = cast(Any, nx.drawing.nx_pydot.from_pydot(pgraph))
+    g_nx: Any = nx.drawing.nx_pydot.from_pydot(pgraph)
     net = Network(directed=True)
     net.from_nx(g_nx)
     # Strip embedded quotes from labels and colors
@@ -827,7 +885,7 @@ def bmap_pyvis(
     print(graphs)
     pgraph = graphs[0]
     # Convert to NetworkX
-    g_nx = cast(Any, nx.drawing.nx_pydot.from_pydot(pgraph))
+    g_nx: Any = nx.drawing.nx_pydot.from_pydot(pgraph)
     # Insert a blank white dummy sibling under the root container to anchor hubsize
     # Determine root: if ContainerNode passed, use its name; else take first node
 

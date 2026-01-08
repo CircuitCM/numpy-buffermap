@@ -1,10 +1,10 @@
-# ruff: noqa: E731, E501
+# ruff: noqa: E731
 
 import importlib.util
 import itertools
 from numbers import Number
 from types import NoneType
-from typing import Any, Callable, Sequence, TypeAlias, cast, overload
+from typing import Any, Callable, Sequence, TypeAlias, overload
 
 import numpy as np
 import sympy as sym
@@ -28,10 +28,12 @@ BuffExprMaybe: TypeAlias = BuffExpr | None
 BuffExprSeq: TypeAlias = Sequence[BuffExpr]
 BuffExprTuple: TypeAlias = tuple[BuffExprMaybe, ...]
 SizeExpr: TypeAlias = int | sym.Expr
-SizeSpec: TypeAlias = SizeExpr | str
+SizeSeq: TypeAlias = Sequence[SizeExpr]
+SizeSpec: TypeAlias = BuffExpr | str
 ShapeLike: TypeAlias = SizeSpec | Sequence[SizeSpec]
 InitOp: TypeAlias = int | float | np.ndarray | Callable[[np.ndarray], Any]
 DTypeLike: TypeAlias = np.dtype | np.generic | type[np.generic] | sym.Expr | str | int | type[Number] | type[int]
+SymbolKey: TypeAlias = sym.Symbol | str
 
 CD_ = sym.Function("cd_")  # ceildiv
 FD_ = sym.Function("fd_")  # floordiv
@@ -39,8 +41,17 @@ CD_FUNC: sym.Function = CD_
 FD_FUNC: sym.Function = FD_
 
 ### Helpers
-UO = use_other = object()
-_ESET = set()
+
+
+class _UseOther:
+    __slots__ = ()
+
+
+UO = use_other = _UseOther()
+UseOther: TypeAlias = _UseOther
+ShapeParam: TypeAlias = ShapeLike | None | UseOther
+InitParam: TypeAlias = InitOp | None | UseOther
+_ESET: set[sym.Basic] = set()
 HAS_SYM = True  # dead code, sympy is now required.
 _GB_EXPR = {}
 NT = NoneType
@@ -54,7 +65,8 @@ def gen_max(sq: Sequence[SizeExpr], simplify: bool = True) -> sym.Max | int:
     if mv.is_number:
         return int(mv)
     elif simplify:
-        return mv  # .simplify() #calling simplify solely for the max function but not the expressions might not actually do anything.
+        # calling simplify solely for max (not the inputs) likely does nothing.
+        return mv
     return mv
 
 
@@ -72,7 +84,7 @@ def gen_add(sq: Sequence[SizeExpr], simplify: bool = True) -> sym.Expr | int:
 def roundup(var: SizeExpr, rup: SizeExpr | int | None):
     if rup is None or (isinstance(rup, int) and rup < 1):
         return var
-    return sym.ceiling(var / rup) * rup  # type: ignore[unsupported-operation]
+    return sym.ceiling(var / rup) * rup
 
 
 exec("from sympy import *", _GB_EXPR)  # might need less imports than this, see about that later.
@@ -225,7 +237,10 @@ class _IDGen:
 
 
 @rgc
-def aligned_buffer(n_bytes: int, align: int = BufferAlign.AVX512) -> np.ndarray:
+def aligned_buffer(
+    n_bytes: SizeExpr,
+    align: SizeExpr = BufferAlign.AVX512,
+) -> np.ndarray:
     """Return an aligned ``uint8`` view of length ``n_bytes``.
 
     A slightly oversized buffer is allocated and then *manually aligned* by
@@ -234,14 +249,16 @@ def aligned_buffer(n_bytes: int, align: int = BufferAlign.AVX512) -> np.ndarray:
 
     Parameters
     ----------
-    n_bytes : int
+    n_bytes : int | sym.Expr
         Logical size of the returned view (in bytes).
-    align : int
+    align : int | sym.Expr
         Desired byte alignment (power-of-two is assumed).
     """
-    raw = np.empty(n_bytes + align, dtype=np.uint8)
-    offset = (-raw.ctypes.data) & (align - 1)
-    return raw[offset : offset + n_bytes]
+    n_bytes_i = eval_buff_expr(n_bytes)
+    align_i = eval_buff_expr(align)
+    raw = np.empty(n_bytes_i + align_i, dtype=np.uint8)
+    offset = (-raw.ctypes.data) & (align_i - 1)
+    return raw[offset : offset + n_bytes_i]
 
 
 _SYMCACHE: dict[str, sym.Expr] = {}
@@ -260,7 +277,11 @@ def check_eqstr(st: str) -> bool:
 
 
 def c_orlen(tgt, mtch: str):
-    """Check if the first part of `tgt` matches `mtch`. Which is only possible if `len(tgt)>=len(mtch)`, so it avoid that runtime error."""
+    """Check if the first part of ``tgt`` matches ``mtch``.
+
+    This is only possible if ``len(tgt) >= len(mtch)``, so it avoids a runtime
+    error.
+    """
     if len(tgt) < len(mtch):
         return False
     return tgt[: len(mtch)] == mtch
@@ -269,18 +290,24 @@ def c_orlen(tgt, mtch: str):
 def buffer_expr(sy: int | str | sym.Expr | None, warn: bool = True, safe: bool = True) -> BuffExprMaybe:
     """Buffer symbol or expression generator with object cache for faster tree operations.
 
-    If sy is a string without whitespace, or an existing symbol: Makes a sympy symbol with constraints that are valid for use in dynamic/abstract buffer maps.
+    If ``sy`` is a string without whitespace, or an existing symbol: makes a
+    sympy symbol with constraints that are valid for use in dynamic/abstract
+    buffer maps.
 
-    If sy is a string with whitespace it will first assume it's an equation and try to eval it
+    If ``sy`` is a string with whitespace it will first assume it's an equation
+    and try to eval it.
 
-    If sy is an int value: returns the int value, which is the original static handling.
+    If ``sy`` is an int value: returns the int value, which is the original
+    static handling.
 
-    If sy is another expression (e.g. a multi-symbol equation): It returns that expression alone.
+    If ``sy`` is another expression (e.g. a multi-symbol equation): it returns
+    that expression alone.
 
-    This expr building function will only handle single symbols or expressions that evaluate to a single output integer, not objects or tuples.
-    This is because it's much more performant to swap symbols out by their string name with a literal int value, than it is to actually call .subs and then int cast
-    an object expression or symbol in sympy.
-
+    This expr building function will only handle single symbols or expressions
+    that evaluate to a single output integer, not objects or tuples. This is
+    because it's much more performant to swap symbols out by their string name
+    with a literal int value, than it is to call ``.subs`` and then int cast an
+    object expression or symbol in sympy.
     """
     if isinstance(sy, int) or sy is None:
         return sy  # This allows value negatives which might be intentional. and None is a special return type.
@@ -299,11 +326,13 @@ def buffer_expr(sy: int | str | sym.Expr | None, warn: bool = True, safe: bool =
                     _SYMCACHE[exp.name] = exp
                     if warn:
                         print(
-                            f'Warning: Buffer Symbol cached under "{sy}" and "{exp.name}", correct symbol formatting does not include extra whitespace or operators.'
+                            f'Warning: Buffer Symbol cached under "{sy}" and "{exp.name}", '
+                            "correct symbol formatting does not include extra whitespace "
+                            "or operators."
                         )
                 else:
                     _SYMCACHE[sy] = exp
-                    sybs = cast(set[sym.Symbol], exp.free_symbols)
+                    sybs = {syb for syb in exp.free_symbols if isinstance(syb, sym.Symbol)}
                     for syb in sybs:
                         if syb.name not in _SYMCACHE:
                             _SYMCACHE[syb.name] = syb
@@ -314,10 +343,13 @@ def buffer_expr(sy: int | str | sym.Expr | None, warn: bool = True, safe: bool =
         else:
             return syc
 
-    # A symbol is an expression, but not all expressions are symbols (e.g. equations that are made of symbols).
-    # So we check if symbol first. might also wanna just return the symbol straight up like exp.
-    # by calling is_symbol this should also help keep errors between sym Basic that will have a bool is_symbol field always and any other
-    # objects that might not.
+    # A symbol is an expression, but not all expressions are symbols (e.g.
+    # equations that are made of symbols).
+    # So we check if symbol first. might also wanna just return the symbol
+    # straight up like exp.
+    # By calling is_symbol this should also help keep errors between sym Basic
+    # that will have a bool is_symbol field always and any other objects that
+    # might not.
     if isinstance(sy, sym.Symbol):
         sn = sy.name
         syc = _SYMCACHE.get(sn, None)
@@ -327,9 +359,13 @@ def buffer_expr(sy: int | str | sym.Expr | None, warn: bool = True, safe: bool =
             is_positive = bool(getattr(sy, "is_positive", False))
             _SYMCACHE[sn] = syc = sy if is_integer and not is_positive else sym.Symbol(sn, integer=True, positive=True)
         return syc
-        # Otherwise return the expression, we shouldn't need to cache pre-made expressions because that means the user is making the expression externally first.
-        # Also getting the string from an expression is expensive and might not match the original, eg using // instead of floor( ./.).
-        # without type checking the class it means the error pop up elsewhere if it implements an is_symbol field, just note that.
+        # Otherwise return the expression, we shouldn't need to cache pre-made
+        # expressions because that means the user is making the expression
+        # externally first.
+        # Also getting the string from an expression is expensive and might not
+        # match the original, eg using // instead of floor( ./.).
+        # Without type checking the class it means the error pop up elsewhere
+        # if it implements an is_symbol field, just note that.
     # if safe:
     #      raise ImportError(f'Sympy not installed but a dynamic parameter: {sy} was requested.\nPlease install sympy.')
     # else:
@@ -347,21 +383,39 @@ def bdict(**kwargs):
 
 
 @overload
-def buffer_symbols(*tgt: str) -> tuple[sym.Symbol, ...]: ...
+def buffer_symbols(tgt: str) -> tuple[sym.Symbol, ...]: ...
 
 
 @overload
-def buffer_symbols(*tgt: object) -> BuffExprMaybe | tuple[BuffExprMaybe, ...]: ...
+def buffer_symbols(tgt: str) -> sym.Symbol: ...
 
 
-def buffer_symbols(*tgt: object) -> BuffExprMaybe | tuple[BuffExprMaybe, ...]:
+@overload
+def buffer_symbols(tgt: str, *more: str) -> tuple[sym.Symbol, ...]: ...
+
+
+@overload
+def buffer_symbols(tgt: object, *more: object) -> BuffExprMaybe | tuple[BuffExprMaybe, ...]: ...
+
+
+def buffer_symbols(tgt: object, *more: object) -> BuffExprMaybe | tuple[BuffExprMaybe, ...]:
     """Make buffer symbols in the same way as sym.symbols."""
-    target: object | tuple[object, ...] = tgt
-    if len(tgt) == 1:
-        target = tgt[0]
+    target: object | tuple[object, ...] = (tgt, *more) if more else tgt
     if isinstance(target, str) and " " in target:
         return (*(buffer_expr(st) for st in target.split(" ") if not check_eqstr(st) and st != ""),)
     return dt_buff_exprs(target)
+
+
+@overload
+def dt_buff_exprs(tgt: None) -> None: ...
+
+
+@overload
+def dt_buff_exprs(tgt: Sequence[SizeSpec]) -> tuple[BuffExpr, ...]: ...
+
+
+@overload
+def dt_buff_exprs(tgt: SizeSpec) -> BuffExpr: ...
 
 
 @overload
@@ -376,22 +430,38 @@ def dt_buff_exprs(tgt) -> BuffExprMaybe | tuple[BuffExprMaybe, ...]:
     """Ducktape symbols in target, either return as tuple or singular value if not a sequence."""
     if not isinstance(tgt, str) and isinstance(tgt, Sequence):
         return (*(buffer_expr(t) for t in tgt),)
-    else:
-        return buffer_expr(tgt)
+    return buffer_expr(tgt)
 
 
 def eval_buff_expr(evt: Any, evd: dict | None = None) -> int:
     """Evaluate buffer expression or symbol."""
-    if type(evt) is int:
+    if isinstance(evt, int):
         return evt
     if evd is None:
-        return int(evt)  # which should raise if it can't be turned into an int.
+        return int(evt)
+    # which should raise if it can't be turned into an int.
     if evt.is_symbol:
-        return evd[evt]  # assume user correctly adds only ints to evd values
-    return int(evt.subs(evd))  # if this doesn't eval to int then it will also correctly raise.
+        return evd[evt]
+    # assume user correctly adds only ints to evd values
+    return int(evt.subs(evd))
+    # if this doesn't eval to int then it will also correctly raise.
 
 
-def eval_buff_exprs(evts: Sequence[BuffExpr], evd: dict | None = None) -> tuple[int, ...] | Sequence[BuffExpr]:
+@overload
+def eval_buff_exprs(
+    evts: Sequence[BuffExpr],
+    evd: None = None,
+) -> Sequence[BuffExpr]: ...
+
+
+@overload
+def eval_buff_exprs(evts: Sequence[BuffExpr], evd: dict) -> tuple[int, ...]: ...
+
+
+def eval_buff_exprs(
+    evts: Sequence[BuffExpr],
+    evd: dict | None = None,
+) -> Sequence[BuffExpr] | tuple[int, ...]:
     """Evaluate sequence of buffers expression or symbols."""
     if evd is None:
         for evt in evts:
@@ -402,17 +472,17 @@ def eval_buff_exprs(evts: Sequence[BuffExpr], evd: dict | None = None) -> tuple[
         return evts
     out: list[int] = []
     for e in evts:
-        if type(e) is int:
+        if isinstance(e, int):
             out.append(e)
         elif isinstance(e, sym.Expr) and e.is_symbol:
             out.append(evd[e])
         else:
-            out.append(int(cast(sym.Expr, e).subs(evd)))  # type: ignore[arg-type]
+            out.append(int(e.subs(evd)))
     return tuple(out)
 
 
 def cf_plcsym(
-    exprs: Sequence[sym.Expr],
+    exprs: Sequence[SizeExpr],
     cd: sym.Function = CD_FUNC,
     fd: sym.Function = FD_FUNC,
 ) -> list[sym.Expr]:
@@ -432,7 +502,7 @@ def cf_plcsym(
                 return fd(num, den) if obj.func is floor else cd(num, den)  # type: ignore[not-callable]
         return obj
 
-    return [cast(sym.Expr, e.replace(lambda obj: obj.func is floor or obj.func is ceil, repl)) for e in exprs]
+    return [sym.sympify(e).replace(lambda obj: obj.func is floor or obj.func is ceil, repl) for e in exprs]
 
 
 def numb_syms(prefix: str = "t", start: int = 0):
@@ -444,7 +514,7 @@ def numb_syms(prefix: str = "t", start: int = 0):
         start += 1
 
 
-def is_eqn(expr) -> bool:
+def is_eqn(expr: sym.Expr | Sequence[SizeExpr] | int | object | None) -> bool:
     """Return True when ``expr`` is a non-atomic sympy expression."""
     return isinstance(expr, sym.Expr) and not expr.is_Atom  # or is_symbol but atom probably more correct.
 
@@ -465,32 +535,44 @@ def _arrpxpr(excs, exprss) -> None:
         _pxpr(excs, exprss[2])
 
 
-def _bxpr(exls, exprs, ct):
+def _bxpr(
+    exls: Sequence[SizeExpr],
+    exprs: SizeExpr | Sequence[SizeExpr] | None,
+    ct: list[int],
+) -> SizeExpr | Sequence[SizeExpr] | None:
     if is_eqn(exprs):
         ex = exls[ct[0]]
         ct[0] += 1
         return ex
     elif isinstance(exprs, (tuple, list)):
-        dl = []
+        dl: list[SizeExpr] = []
         for v in exprs:
             if is_eqn(v):
                 dl.append(exls[ct[0]])
                 ct[0] += 1
             else:
+                assert isinstance(v, (sym.Expr, int))
                 dl.append(v)
         return dl
+    return exprs
 
 
-def _arrbxpr(exls, exprss, ct) -> tuple[object, object, object]:
-    ot = []
-    ot.append(_bxpr(exls, exprss[0], ct))
-    ot.append(t1 := _bxpr(exls, exprss[1], ct))
-    if exprss[1] is not exprss[2]:
-        ot.append(_bxpr(exls, exprss[2], ct))
-    else:
-        ot.append(t1)
+def _arrbxpr(
+    exls: Sequence[SizeExpr],
+    exprss: tuple[SizeExpr, SizeSeq, SizeSeq],
+    ct: list[int],
+) -> tuple[SizeExpr, SizeSeq, SizeSeq]:
+    first = _bxpr(exls, exprss[0], ct)
+    second = _bxpr(exls, exprss[1], ct)
+    third = _bxpr(exls, exprss[2], ct) if exprss[1] is not exprss[2] else second
+    if first is None or isinstance(first, Sequence):
+        raise TypeError("Expected a scalar byte expression.")
+    if not isinstance(second, Sequence):
+        raise TypeError("Expected a backing-shape sequence.")
+    if not isinstance(third, Sequence):
+        raise TypeError("Expected a logical-shape sequence.")
     # print(ct,ot)
-    return cast(tuple[object, object, object], tuple(ot))
+    return (first, tuple(second), tuple(third))
 
 
 class BButil:
@@ -516,9 +598,17 @@ class BButil:
         else:
             sbalign = balign
         name = bmap.name.lower().replace(" ", "_")
-        return f"""def {name}({", ".join(args)}{", " * (len(args) > 0)}{", ".join(f"{k}={v}" for k, v in kwargs.items())}{", " * (len(kwargs) > 0)}{check_alloc}=None{f", {sbalign}" * el}):
-    {BButil.add_ceildiv(ceilref)}
-    {BButil.add_typeparams(args, kwargs, typebytes)}"""
+        args_str = ", ".join(args)
+        kwargs_str = ", ".join(f"{k}={v}" for k, v in kwargs.items())
+        parts = [p for p in (args_str, kwargs_str, f"{check_alloc}=None") if p]
+        sig = ", ".join(parts)
+        if el:
+            sig = f"{sig}, {sbalign}"
+        return (
+            f"def {name}({sig}):\n"
+            f"    {BButil.add_ceildiv(ceilref)}\n"
+            f"    {BButil.add_typeparams(args, kwargs, typebytes)}"
+        )
 
     @classmethod
     def add_typeparams(cls, args, kwargs, tbld=None) -> str:
@@ -580,8 +670,13 @@ def lyr_str_key(lyr: str) -> int:
 def post_process_cse(repls, reduced, symbols, oneassign_del=True, clean_order=True):
     """After cse, we group temps into tuple assignment layers based on their own dependencies.
 
-    :param clean_order: Groups functional declarations like ceiling div and floor div together per layer. And renames variables to be ordered at the assignment block.
-    :param oneassign_del: cse sometimes creates assignment variables that are only referenced once. This will delete those variables and place their value declarations directly in the reference. Can reduce temp variables without increasing the represented arithmetic operations.
+    :param clean_order: Groups functional declarations like ceiling div and
+        floor div together per layer. Renames variables so they are ordered at
+        the assignment block.
+    :param oneassign_del: cse sometimes creates assignment variables that are
+        only referenced once. This deletes those variables and places their
+        value declarations directly in the reference. Can reduce temp variables
+        without increasing the represented arithmetic operations.
     """
     temps = [lhs for lhs, _ in repls]
     pending = set(temps)
@@ -679,12 +774,17 @@ def post_process_cse(repls, reduced, symbols, oneassign_del=True, clean_order=Tr
     return layers, reduced
 
 
-def cse_codereduction(exprs: Sequence[sym.Expr], prefix: str = "t", optimizations: str = "basic", symbols=numb_syms):
+def cse_codereduction(
+    exprs: Sequence[SizeExpr],
+    prefix: str = "t",
+    optimizations: str = "basic",
+    symbols=numb_syms,
+):
     """
     Runs through the classic sympy cse reduction, but improves it for integer indexing code by:
-     - Handling floor and ceiling operators better.
-     - Removes reductions that have only one reference.
-     - Formats reductions into a layer of tuple assignments for aesthetic quality.
+    - Handling floor and ceiling operators better.
+    - Removes reductions that have only one reference.
+    - Formats reductions into a layer of tuple assignments for aesthetic quality.
     """
     exprs_wrapped = cf_plcsym(exprs)
     repls, reduced = sym.cse(exprs_wrapped, symbols=symbols(prefix), optimizations=optimizations)

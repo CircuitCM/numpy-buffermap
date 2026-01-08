@@ -1,6 +1,6 @@
-import bmap as npb
 import numpy as np
 
+import bmap as npb
 from bmap import buffer_symbols
 
 
@@ -35,6 +35,8 @@ def test1():
     print(npb.build_buffer_allocator(mem_map,rgs,chkforbuffer=True),'\n')
 
 import sympy as sym
+
+
 def lars1_test():
     #if maxcalc_dims <= 0: maxcalc_dims = min(sample_size
     m,n,dt,il=buffer_symbols('sample_size sample_dims type_flt alignb')

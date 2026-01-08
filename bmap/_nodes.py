@@ -6,7 +6,7 @@ import math as mt
 from itertools import chain
 from numbers import Number
 from types import NoneType
-from typing import Any, Optional, Sequence, TypeAlias, Union, cast, override
+from typing import Optional, Sequence, TypeAlias, Union
 
 import numpy as np
 import sympy as sym
@@ -21,6 +21,7 @@ from bmap._util import (
     InitOp,
     ShapeLike,
     SizeExpr,
+    SizeSeq,
     _IDGen,
     buffer_expr,
     c_orlen,
@@ -31,9 +32,7 @@ from bmap._util import (
     roundup,
 )
 
-SymDef: TypeAlias = (
-    BuffExprMaybe | Sequence[BuffExprMaybe] | tuple[SizeExpr | None, Sequence[SizeExpr], Sequence[SizeExpr]]
-)
+SymDef: TypeAlias = BuffExprMaybe | Sequence[BuffExprMaybe] | tuple[SizeExpr | None, SizeSeq, SizeSeq]
 
 
 class BaseNode(NodeMixin):
@@ -59,6 +58,7 @@ class BaseNode(NodeMixin):
     no_merge: bool
     nbytes: SizeExpr | None
     ofs: Optional[int]
+    buffer: np.ndarray | None
 
     def __init__(
         self,
@@ -87,9 +87,7 @@ class BaseNode(NodeMixin):
     def name(self) -> None:
         del self.label
 
-    def gen_call(
-        self, *args: object, **kwargs: object
-    ) -> tuple[str | tuple[str, ...] | None, str | int | float | None]:
+    def gen_call(self) -> tuple[str | tuple[str, ...] | None, str | int | float | None]:
         """This was previously called gen_def, now it defines it's string definition, based on certain modified dependents.
 
         This will emit the defining string of the representation in the code defining generator.
@@ -108,7 +106,7 @@ class BaseNode(NodeMixin):
         raise NotImplementedError
 
     @property
-    def free_symbols(self) -> set[Any]:
+    def free_symbols(self) -> set[sym.Basic]:
         """If sympy is installed this is an api to return all used symbols within the node."""
         return _ESET
 
@@ -137,12 +135,11 @@ class ValueNode(BaseNode):
     def __repr__(self) -> str:
         return f"|Value {self._short()} {repr(self.value)[:50]} {self.vtype}|"
 
-    @override
-    def gen_call(self, *args: object, **kwargs: object) -> tuple[str | None, str | int | None]:
-        valexpr = kwargs.get("valexpr") if "valexpr" in kwargs else (args[0] if args else None)
-        subn = kwargs.get("subn") if "subn" in kwargs else (args[1] if len(args) > 1 else None)
-        valexpr = cast(BuffExprMaybe, valexpr)
-        subn = cast(str | None, subn)
+    def gen_call(
+        self,
+        valexpr: BuffExprMaybe | None = None,
+        subn: str | None = None,
+    ) -> tuple[str | None, str | int | None]:
         if valexpr is None:
             valexpr = self.value
         vg = gen_str(valexpr) if isinstance(valexpr, sym.Expr) else valexpr
@@ -154,15 +151,14 @@ class ValueNode(BaseNode):
             rstr = vg  # we don't assign and go straight to the return
         return istr, rstr
 
-    @override
     def sym_def(self) -> BuffExprMaybe:
         return self.value
 
     @property
-    def free_symbols(self) -> set[Any]:
+    def free_symbols(self) -> set[sym.Basic]:
         """If sympy is installed this is an api to return all used symbols within the node."""
         if isinstance(self.value, sym.Expr):
-            return cast(set[Any], self.value.free_symbols)
+            return self.value.free_symbols
         return _ESET
 
 
@@ -200,38 +196,45 @@ class ArrayNode(BaseNode):
         align_ldim: ShapeLike | None = None,
     ) -> None:
         super().__init__(name=name, no_merge=True)
-        s = dt_buff_exprs((shape,) if isinstance(shape, int) else shape)
-        shape_seq = s if isinstance(s, tuple) else (s,)
-        shape_tuple = cast(tuple[SizeExpr, ...], shape_seq)
+        shape_seq = dt_buff_exprs(shape if isinstance(shape, Sequence) and not isinstance(shape, str) else (shape,))
+        shape_tuple = shape_seq if isinstance(shape_seq, tuple) else (shape_seq,)
         self.shape = shape_tuple
         self.array = None
         self.barray = None
-        self.align_ldim = cast(SizeExpr | Sequence[SizeExpr] | None, dt_buff_exprs(align_ldim))
+        self.align_ldim = dt_buff_exprs(align_ldim)
         if isinstance(dtype, type) and issubclass(dtype, (np.generic, Number)):
+            dtype = np.dtype(dtype)
+        if isinstance(dtype, np.generic):
             dtype = np.dtype(dtype)
         if isinstance(dtype, np.dtype):
             self.dtype = dtype  # np.dtype(dtype)
             self.itsize = dtype.itemsize
         else:
-            syty = buffer_expr(cast(int | str | sym.Expr | None, dtype))
-            syty_sym = cast(sym.Symbol, syty)
+            assert isinstance(dtype, (sym.Expr, int, str))
+            syty = buffer_expr(dtype)
+            assert isinstance(syty, sym.Symbol)
+            syty_sym = syty
             if c_orlen(syty_sym.name, "type_"):
                 self.dtype = syty_sym
-                self.itsize = cast(SizeExpr, buffer_expr(syty_sym.name[5:]))
+                itsize_expr = buffer_expr(syty_sym.name[5:])
+                assert itsize_expr is not None
+                self.itsize = itsize_expr
             else:
                 print(
                     f"Note: {dtype} is specified without a `type_` field.\nTo work in the allocation code generator make sure the var name is `type_{dtype}`."
                 )
-                self.dtype = cast(sym.Expr, buffer_expr(f"type_{syty_sym.name}"))
+                dtype_expr = buffer_expr(f"type_{syty_sym.name}")
+                assert isinstance(dtype_expr, sym.Expr)
+                self.dtype = dtype_expr
                 self.itsize = syty_sym
         self.order = order.upper()
         self.init_op = init_op
         if isinstance(self.align_ldim, tuple):
             self.bshape = self.align_ldim
-        elif align_ldim is not None:
+        elif self.align_ldim is not None:
             # otherwise we can't be certain about if align
             print(self.align_ldim, self.itsize)
-            rsz = cast(SizeExpr, self.align_ldim) // self.itsize  # type: ignore[unsupported-operation]
+            rsz = self.align_ldim // self.itsize  # type: ignore[unsupported-operation]
             if self.order == "C":
                 self.bshape = (*shape_tuple[:-1], roundup(shape_tuple[-1], rsz))
             else:
@@ -265,7 +268,11 @@ class ArrayNode(BaseNode):
             else:
                 self.array[...] = self.init_op
 
-    def mk_array(self, buffer: Optional[np.ndarray] = None, sym_dic: dict[sym.Symbol, int] | None = None) -> np.ndarray:
+    def mk_array(
+        self,
+        buffer: Optional[np.ndarray] = None,
+        sym_dic: dict[sym.Symbol, int] | None = None,
+    ) -> np.ndarray:
         """Materialize ``self.array`` either standalone or as a view on
         ``buffer``.
 
@@ -284,11 +291,11 @@ class ArrayNode(BaseNode):
         """
         y = False
         if y := (buffer is None and self.array is None):
-            bshape = cast(tuple[int, ...], eval_buff_exprs(self.bshape, sym_dic))
+            bshape = tuple(int(v) for v in eval_buff_exprs(self.bshape, sym_dic))
             dtype = self.dtype if isinstance(self.dtype, np.dtype) else eval_buff_expr(self.dtype, sym_dic)
             self.array = np.empty(bshape, dtype=dtype, order=self.order)  # type: ignore[no-matching-overload]
         elif y := (buffer is not None):
-            bshape = cast(tuple[int, ...], eval_buff_exprs(self.bshape, sym_dic))
+            bshape = tuple(int(v) for v in eval_buff_exprs(self.bshape, sym_dic))
             dtype = self.dtype if isinstance(self.dtype, np.dtype) else eval_buff_expr(self.dtype, sym_dic)
             cnt = int(mt.prod(bshape))
             view = np.frombuffer(  # type: ignore[no-matching-overload]
@@ -300,11 +307,13 @@ class ArrayNode(BaseNode):
             view = view.reshape(bshape, order=self.order)
             self.array = view
         if y and self.align_ldim is not None:
-            shape = eval_buff_exprs(self.shape, sym_dic)
-            self.barray = cast(np.ndarray, self.array)
+            shape = tuple(int(v) for v in eval_buff_exprs(self.shape, sym_dic))
+            assert self.array is not None
+            self.barray = self.array
             self.array = self.barray[..., : shape[-1]] if self.order == "C" else self.barray[: shape[0], ...]
         self._rinit()
-        return cast(np.ndarray, self.array)
+        assert self.array is not None
+        return self.array
 
     @property
     def value(self) -> np.ndarray | None:
@@ -316,62 +325,70 @@ class ArrayNode(BaseNode):
 
     npspec = "np."
 
-    def gen_call(self, *args: object, **kwargs: object) -> tuple[str, str]:
+    def gen_call(
+        self,
+        bytexpr: SizeExpr | None = None,
+        bshape: SizeSeq | None = None,
+        shape: SizeSeq | None = None,
+        subn: str | None = None,
+    ) -> tuple[str, str]:
         """Generate string definition of array from symbolics or value."""
-        bytexpr = kwargs.get("bytexpr") if "bytexpr" in kwargs else (args[0] if len(args) > 0 else None)
-        bshapet = kwargs.get("bshapet") if "bshapet" in kwargs else (args[1] if len(args) > 1 else None)
-        shapet = kwargs.get("shapet") if "shapet" in kwargs else (args[2] if len(args) > 2 else None)
-        subn = kwargs.get("subn") if "subn" in kwargs else (args[3] if len(args) > 3 else None)
         if not subn and not self.name:
             raise NameError("Arrays without name or sub name are not supported.")
         st = self._short()  # name first, if fails falls back to an integer counter (not related to container position)
         rstr = f"{subn}_{st}" if subn else st
         if bytexpr is None:
             bytexpr = self.nbytes
+        assert bytexpr is not None
         ols = gen_str(bytexpr)
         ds = gen_str(self.dtype) if isinstance(self.dtype, sym.Expr) else self.npspec + self.dtype.name
 
-        if bshapet is None:
-            bshapet = self.bshape
-        bshape_seq = cast(Sequence[SizeExpr], bshapet)
-        dms = gen_str(tuple(bshape_seq[:: (1 if self.order == "C" else -1)]))
+        bshape_seq = self.bshape if bshape is None else bshape
+        bshape_tuple = tuple(bshape_seq)
+        dms = gen_str(tuple(bshape_tuple[:: (1 if self.order == "C" else -1)]))
         istr = self.array_genc(ols, ds, dms, self.order)
         istr = f"{rstr} = {istr}"
         if self.align_ldim is not None:
-            if shapet is None:
-                shapet = self.shape
-            shape_seq = cast(Sequence[SizeExpr], shapet)
-            istr += f"[{f'...,:{gen_str(shape_seq[-1])}' if self.order == 'C' else f':{gen_str(shape_seq[0])},...'}]"
+            shape_seq = self.shape if shape is None else shape
+            shape_tuple = tuple(shape_seq)
+            istr += (
+                f"[{f'...,:{gen_str(shape_tuple[-1])}' if self.order == 'C' else f':{gen_str(shape_tuple[0])},...'}]"
+            )
             # adding \t here seems a bit informal, given we don't know how gen_def will be utilized outside of this method.
             # so do it at the function formatting scope.
         return istr, rstr
 
-    def sym_def(self) -> tuple[SizeExpr | None, Sequence[SizeExpr], Sequence[SizeExpr]]:
-        return cast(SizeExpr, self.nbytes), self.bshape, self.shape
+    def sym_def(self) -> tuple[SizeExpr, SizeSeq, SizeSeq]:
+        assert self.nbytes is not None
+        return self.nbytes, self.bshape, self.shape
 
     @property
-    def free_symbols(self) -> set[Any]:
+    def free_symbols(self) -> set[sym.Basic]:
         """If sympy is installed this is an api to return all used symbols within the node."""
-        fs: set[Any] = set()
+        fs: set[sym.Basic] = set()
         # itsize=symbol_ref is a special cased derived from type_{symbol_ref}'s so it won't go in the function header
         # and gets handled by the allocation handler.
-        align_seq = self.align_ldim if isinstance(self.align_ldim, Sequence) else None
+        align_seq = (
+            self.align_ldim
+            if isinstance(self.align_ldim, Sequence) and not isinstance(self.align_ldim, sym.Expr)
+            else None
+        )
         for v in self.shape if align_seq is None else chain(self.shape, align_seq):
             if isinstance(v, sym.Expr):
                 if v.is_symbol:
                     fs.add(v)
                 else:
-                    fs.update(cast(set[Any], v.free_symbols))
+                    fs.update(v.free_symbols)
         if isinstance(v := self.align_ldim, sym.Expr):
             if v.is_symbol:
                 fs.add(v)
             else:
-                fs.update(cast(set[Any], v.free_symbols))
+                fs.update(v.free_symbols)
         if isinstance(v := self.dtype, sym.Expr):
             if v.is_symbol:
                 fs.add(v)
             else:
-                fs.update(cast(set[Any], v.free_symbols))
+                fs.update(v.free_symbols)
 
         # it's probably a decent bit slower to just call self.nbytes.free_symbols. that also won't include the dtype but will include self.itsize which we dont want
 
@@ -528,20 +545,24 @@ class ContainerNode(BaseNode):
         ols = gen_str(syq)
         return f"buffer = buffer[{ols}:]"
 
-    def gen_call(self, *args: object, **kwargs: object) -> tuple[str, None] | tuple[tuple[str, ...], None]:
+    def gen_call(
+        self,
+        setexpr: SizeExpr | SizeSeq | None = None,
+    ) -> tuple[str, None] | tuple[tuple[str, ...], None]:
         """See BaseNode docstring."""
-        setexpr = kwargs.get("setexpr") if "setexpr" in kwargs else (args[0] if args else None)
         if self.align:
             if setexpr is None:
-                setexpr = self.aligned_eqns
-            setexpr_seq = cast(Sequence[SizeExpr], setexpr)
+                setexpr_seq = self.aligned_eqns
+            elif isinstance(setexpr, Sequence) and not isinstance(setexpr, sym.Expr):
+                setexpr_seq = setexpr
+            else:
+                setexpr_seq = (setexpr,)
             return (*(self.s_def(s) for s in setexpr_seq),), None
-        else:
-            if setexpr is None:
-                setexpr = self.nbytes
-            return self.s_def(setexpr), None
+        if setexpr is None:
+            setexpr = self.nbytes
+        return self.s_def(setexpr), None
 
-    def sym_def(self):
+    def sym_def(self) -> SizeExpr | SizeSeq | None:
         return self.aligned_eqns if self.align else self.nbytes
 
     def __repr__(self) -> str:
@@ -552,7 +573,7 @@ class ContainerNode(BaseNode):
         return v
 
     @property
-    def free_symbols(self):
+    def free_symbols(self) -> set[sym.Basic]:
         """If sympy is installed this is an api to return all used symbols within the node."""
         # it should be necessary and a little slower to call free_symbols on the container, than directly on value or array nodes.
         # which is why the build buffer map function only calls array/value nodes, they will also contain all symbols used on the graph there.

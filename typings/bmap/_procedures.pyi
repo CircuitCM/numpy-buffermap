@@ -5,12 +5,22 @@ from typing import Callable, Sequence, Tuple, Union
 from anytree import NodeMixin
 from pyvis.network import Network
 from bmap._nodes import ArrayNode, BaseNode, ContainerNode, ItemNodeT, ValueNode
-from bmap._util import BufferAlign, BuffExprMaybe, DTypeLike, InitOp, ShapeLike, SizeExpr
+from bmap._util import (
+    BufferAlign,
+    BuffExprMaybe,
+    DTypeLike,
+    InitOp,
+    InitParam,
+    ShapeLike,
+    ShapeParam,
+    SizeExpr,
+    SymbolKey,
+)
 
 def build_buffer_allocator(
     buffer_map: ContainerNode,
-    args: Collection[sym.Symbol | str] = (),
-    kwargs: dict[sym.Symbol | str, SizeExpr] | None = None,
+    args: Collection[SymbolKey] = (),
+    kwargs: dict[SymbolKey, SizeExpr] | None = None,
     tempvar: str = "t",
     subname: bool = False,
     chkforbuffer: bool = True,
@@ -18,43 +28,31 @@ def build_buffer_allocator(
     fullreduce: bool = True,
 ) -> str: ...
 def build_bmap(bmap: ContainerNode, *, align: SizeExpr = BufferAlign.AVX512, name_join: bool = True, force_merge: bool = False, verbose: bool = False) -> set[sym.Symbol]: ...
-def arrays_map(buffer_map: BaseNode, sym_dic: dict[sym.Symbol | str, int] | None = None, balign: SizeExpr = BufferAlign.PAGE, _buffer: np.ndarray | None = None, _base: int = 0) -> None: ...
-def allocate_bmap(bmap: BaseNode, sym_dic: dict[sym.Symbol | str, int] | None = None, balign: SizeExpr = BufferAlign.PAGE, buffer: np.ndarray | None = None) -> BaseNode: ...
+def arrays_map(buffer_map: BaseNode, sym_dic: dict[SymbolKey, int] | None = None, balign: SizeExpr = BufferAlign.PAGE, _buffer: np.ndarray | None = None, _base: int = 0) -> None: ...
+def allocate_bmap(bmap: BaseNode, sym_dic: dict[SymbolKey, int] | None = None, balign: SizeExpr = BufferAlign.PAGE, buffer: np.ndarray | None = None) -> BaseNode: ...
 def bmap_get(bid: Union[Sequence[int], str, BaseNode], bmap: ContainerNode) -> BaseNode: ...
 def build_flatmap(self: ContainerNode, align: SizeExpr = BufferAlign.AVX512, alignb: SizeExpr = BufferAlign.PAGE, name_join: bool = True, force_merge: bool = False, verbose: bool = False): ...
 def oneshot_args(bmap: ContainerNode) -> Tuple[np.ndarray | BuffExprMaybe, ...]: ...
 def v_spec(value: int | str | sym.Expr | None, name: str | None = None) -> ValueNode: ...
 def ar_spec(shape: ShapeLike = (0,), dtype: DTypeLike = np.float64, order: str = "C", init_op: InitOp | None = None, name: str | None = None, align_ldim: ShapeLike | None = None) -> ArrayNode: ...
 def f_arspec_i(
-    shape: ShapeLike | None = None, dtype: DTypeLike | None = None, order: str | None = None, init_op: InitOp | object = ..., name: str | None = None, align_ldim: ShapeLike | object = ...
+    shape: ShapeLike | None = None, dtype: DTypeLike | None = None, order: str | None = None, init_op: InitParam = ..., name: str | None = None, align_ldim: ShapeParam = ...
 ) -> Callable[..., ArrayNode]: ...
 def f_arspec(
-    arspec: ArrayNode,
-    shape: ShapeLike | None = None,
-    dtype: DTypeLike | None = None,
-    order: str | None = None,
-    init_op: InitOp | object = ...,
-    name: str | None = None,
-    align_ldim: ShapeLike | object = ...,
+    arspec: ArrayNode, shape: ShapeLike | None = None, dtype: DTypeLike | None = None, order: str | None = None, init_op: InitParam = ..., name: str | None = None, align_ldim: ShapeParam = ...
 ) -> ArrayNode: ...
 def array_arspec(
     arr: np.ndarray,
     shape: ShapeLike | None = None,
     dtype: DTypeLike | None = None,
     order: str | None = None,
-    init_op: InitOp | object = ...,
+    init_op: InitParam = ...,
     name: str | None = None,
-    align_ldim: ShapeLike | object = ...,
+    align_ldim: ShapeParam = ...,
     _aldim_def: int = BufferAlign.AVX512,
 ) -> ArrayNode: ...
 def ft_arspec(
-    arspec: ArrayNode,
-    shape: ShapeLike | None = None,
-    dtype: DTypeLike | None = None,
-    order: str | None = None,
-    init_op: InitOp | object = ...,
-    name: str | None = None,
-    align_ldim: ShapeLike | object = ...,
+    arspec: ArrayNode, shape: ShapeLike | None = None, dtype: DTypeLike | None = None, order: str | None = None, init_op: InitParam = ..., name: str | None = None, align_ldim: ShapeParam = ...
 ) -> ArrayNode: ...
 def sb_node(*args, name=None, no_merge=False) -> ContainerNode: ...
 def db_node(*args, name=None, no_merge=False, align=True) -> ContainerNode: ...
