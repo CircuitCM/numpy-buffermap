@@ -20,3 +20,5 @@ dist/
 tests/report/vulture/
 **/html
 scratch.md
+progress.md
+pyproject_temp.toml

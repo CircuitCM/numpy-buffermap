@@ -1,5 +1,3 @@
-
-
 """Numpy Buffer Map
 ===================
 
@@ -37,11 +35,10 @@ helpers (`flatten_items`, `flat_inits`) return leaves or initialized values in
 preorder.
 """
 
-
-
-from . import _util as _  #load it first
+from . import _util as _  # load it first
 from ._nodes import ArrayNode, BaseNode, ContainerNode, ItemNodeT, ValueNode
 from ._procedures import (
+    allocate_bmap,
     ar_spec,
     array_arspec,
     arrays_map,
@@ -63,10 +60,8 @@ from ._procedures import (
 from ._util import (
     BButil,
     BufferAlign,
-    BufferMap,  #rename to ContainerType
+    BufferMap,  # rename to ContainerType
     NativeTypes,
-    SymExpr,
-    SymSymbol,
     aligned_buffer,
     bdict,
     buffer_expr,
@@ -76,10 +71,52 @@ from ._util import (
     dt_buff_exprs,
     eval_buff_expr,
     eval_buff_exprs,
-    gen_add,
-    gen_max,
     is_eqn,
     mk_buff_dict,
     numb_syms,
 )
-#update build_flatmap, oneshot_args, flat_inits, 
+
+# update build_flatmap, oneshot_args, flat_inits,
+
+__all__ = [
+    "ArrayNode",
+    "BaseNode",
+    "BButil",
+    "BufferAlign",
+    "BufferMap",
+    "_",
+    "ContainerNode",
+    "ItemNodeT",
+    "NativeTypes",
+    "ValueNode",
+    "aligned_buffer",
+    "allocate_bmap",
+    "ar_spec",
+    "array_arspec",
+    "arrays_map",
+    "bdict",
+    "bmap_get",
+    "bmap_pyvis",
+    "build_bmap",
+    "build_buffer_allocator",
+    "build_flatmap",
+    "buffer_expr",
+    "buffer_symbols",
+    "c_orlen",
+    "clone_bmap",
+    "cse_codereduction",
+    "db_node",
+    "dt_buff_exprs",
+    "eval_buff_expr",
+    "eval_buff_exprs",
+    "f_arspec",
+    "f_arspec_i",
+    "ft_arspec",
+    "is_eqn",
+    "mk_buff_dict",
+    "numb_syms",
+    "oneshot_args",
+    "save_bmap_tree",
+    "sb_node",
+    "v_spec",
+]

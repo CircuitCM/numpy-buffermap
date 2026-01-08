@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 # from collections.abc import Collection
 # from functools import cache
 
@@ -5,19 +6,21 @@ import math as mt
 from itertools import chain
 from numbers import Number
 from types import NoneType
-from typing import Optional, Sequence, Union, override
+from typing import Any, Optional, Sequence, TypeAlias, Union, cast, override
 
 import numpy as np
+import sympy as sym
 from anytree import DoubleStyle, LightNodeMixin, NodeMixin, RenderTree
-from sympy.core.expr import Expr
-from sympy.core.symbol import Symbol
 
-from bmap._procedures import build_bmap, flat_inits
 from bmap._util import (
     _ESET,
     BufferAlign,
     BufferMap,
-    SymExpr,
+    BuffExprMaybe,
+    DTypeLike,
+    InitOp,
+    ShapeLike,
+    SizeExpr,
     _IDGen,
     buffer_expr,
     c_orlen,
@@ -26,6 +29,10 @@ from bmap._util import (
     eval_buff_exprs,
     gen_str,
     roundup,
+)
+
+SymDef: TypeAlias = (
+    BuffExprMaybe | Sequence[BuffExprMaybe] | tuple[SizeExpr | None, Sequence[SizeExpr], Sequence[SizeExpr]]
 )
 
 
@@ -55,9 +62,9 @@ class BaseNode(NodeMixin):
         self.id: int = _IDGen.new_id()
         self.label: Optional[str] = str(name) if name is not None else None
         self.no_merge: bool = bool(no_merge)
-        self.nbytes: Optional[int] = None
+        self.nbytes: SizeExpr | None = None
         self.ofs: Optional[int] = None
-        #self.buffer: Optional[np.ndarray] = None
+        # self.buffer: Optional[np.ndarray] = None
 
     def _short(self) -> str:
         return self.label or str(self.id)
@@ -73,27 +80,29 @@ class BaseNode(NodeMixin):
     @name.deleter
     def name(self) -> None:
         del self.label
-    
-    
-    def gen_call(self,*args,**kwargs) -> tuple[str, str]:
+
+    def gen_call(
+        self, *args: object, **kwargs: object
+    ) -> tuple[str | tuple[str, ...] | None, str | int | float | None]:
         """This was previously called gen_def, now it defines it's string definition, based on certain modified dependents.
-        
+
         This will emit the defining string of the representation in the code defining generator.
-        
+
         The defining idea of the writer, is that if we start at the top of the tree. Then walk down the
         tree depth first, adding gen_defs to a list of strings on first visitation to a node, we should be able correctly
         define all buffer sub-indices offsets and array definitions/dependencies accurately.
         """
-        #subn : sub-name for use in extending the name of the parameter eg containername_varname
-        istr='#The assignment/initializer codeline.'
-        rstr='#The return statement/reference within the return line.'
-        return istr,rstr
-    
-    def sym_def(self):
+        # subn : sub-name for use in extending the name of the parameter eg containername_varname
+        istr = "#The assignment/initializer codeline."
+        rstr = "#The return statement/reference within the return line."
+        return istr, rstr
+
+    def sym_def(self) -> SymDef:
         """Returns the sequence of node objects that are dependent on the node's procedural generation and simplification by cse in sympy."""
         raise NotImplementedError
-    
-    def free_symbols(self):
+
+    @property
+    def free_symbols(self) -> set[Any]:
         """If sympy is installed this is an api to return all used symbols within the node."""
         return _ESET
 
@@ -107,41 +116,47 @@ class ValueNode(BaseNode):
 
     def __init__(
         self,
-        value,
+        value: int | str | sym.Expr | None,
         name: Optional[Union[str, int, float]] = None,
     ) -> None:
         super().__init__(name=name, no_merge=True)
-        self.value = buffer_expr(value,safe=False)
+        self.value: BuffExprMaybe = buffer_expr(value, safe=False)
 
     @property
-    def vtype(self) -> type[Expr] | type[NoneType] | type[Symbol] | type[int]:
+    def vtype(self) -> type[sym.Expr] | type[NoneType] | type[sym.Symbol] | type[int]:
         return type(self.value)
 
     def __repr__(self) -> str:
         return f"|Value {self._short()} {repr(self.value)[:50]} {self.vtype}|"
-    
+
     @override
-    def gen_call(self,valexpr=None, subn=None):
-        if valexpr is None: valexpr = self.value
-        vg=gen_str(valexpr) if isinstance(valexpr,SymExpr) else valexpr
+    def gen_call(self, *args: object, **kwargs: object) -> tuple[str | None, str | int | None]:
+        valexpr = kwargs.get("valexpr") if "valexpr" in kwargs else (args[0] if args else None)
+        subn = kwargs.get("subn") if "subn" in kwargs else (args[1] if len(args) > 1 else None)
+        valexpr = cast(BuffExprMaybe, valexpr)
+        subn = cast(str | None, subn)
+        if valexpr is None:
+            valexpr = self.value
+        vg = gen_str(valexpr) if isinstance(valexpr, sym.Expr) else valexpr
         if self.name:
-            rstr=f'{subn}_{self.name}' if subn else self.name
-            istr= f'{rstr} = {vg}'
-        else: 
-            istr=None
-            rstr=vg #we don't assign and go straight to the return
-        return istr,rstr
-    
+            rstr = f"{subn}_{self.name}" if subn else self.name
+            istr = f"{rstr} = {vg}"
+        else:
+            istr = None
+            rstr = vg  # we don't assign and go straight to the return
+        return istr, rstr
+
     @override
-    def sym_def(self) -> Expr | Symbol | int | None:
+    def sym_def(self) -> BuffExprMaybe:
         return self.value
-    
+
     @property
-    def free_symbols(self):
+    def free_symbols(self) -> set[Any]:
         """If sympy is installed this is an api to return all used symbols within the node."""
-        if isinstance(self.value,SymExpr):
-            return self.value.free_symbols
+        if isinstance(self.value, sym.Expr):
+            return cast(set[Any], self.value.free_symbols)
         return _ESET
+
 
 class ArrayNode(BaseNode):
     """Leaf node that materializes as a NumPy array.
@@ -159,52 +174,60 @@ class ArrayNode(BaseNode):
 
     def __init__(
         self,
-        shape: Union[int, Sequence[int]] = (0,),
-        dtype: np.dtype|np.generic = np.float64, #type: ignore[bad-function-definition]
+        shape: ShapeLike = (0,),
+        dtype: DTypeLike = np.float64,  # type: ignore[bad-function-definition]
         order: str = "C",
-        init_op: Optional[Union[int, float, np.ndarray, callable]] = None,
+        init_op: InitOp | None = None,
         name: Optional[Union[str, int, float]] = None,
-        align_ldim=None,
+        align_ldim: ShapeLike | None = None,
     ) -> None:
         super().__init__(name=name, no_merge=True)
         s = dt_buff_exprs((shape,) if isinstance(shape, int) else shape)
-        self.shape: Sequence[int|SymExpr] = s
-        self.dtype: np.dtype|SymExpr
-        self.bshape: Sequence[int|SymExpr]
+        shape_seq = s if isinstance(s, tuple) else (s,)
+        shape_tuple = cast(tuple[SizeExpr, ...], shape_seq)
+        self.shape: Sequence[SizeExpr] = shape_tuple
+        self.dtype: np.dtype | sym.Expr
+        self.bshape: Sequence[SizeExpr]
         self.array: Optional[np.ndarray] = None
         self.barray: Optional[np.ndarray]
-        self.align_ldim: int|Sequence[int|SymExpr] = dt_buff_exprs(align_ldim)
-        if isinstance(dtype, type) and issubclass(dtype,(np.generic,Number)):dtype=np.dtype(dtype)
-        if isinstance(dtype,np.dtype):
-            self.dtype = dtype #np.dtype(dtype)
-            self.itsize=dtype.itemsize
+        self.align_ldim: SizeExpr | Sequence[SizeExpr] | None = cast(
+            SizeExpr | Sequence[SizeExpr] | None, dt_buff_exprs(align_ldim)
+        )
+        if isinstance(dtype, type) and issubclass(dtype, (np.generic, Number)):
+            dtype = np.dtype(dtype)
+        if isinstance(dtype, np.dtype):
+            self.dtype = dtype  # np.dtype(dtype)
+            self.itsize: SizeExpr = dtype.itemsize
         else:
-            syty=buffer_expr(dtype)
-            if c_orlen(syty.name,'type_'): 
-                self.dtype= syty
-                self.itsize=buffer_expr(syty.name[5:])
+            syty = buffer_expr(cast(int | str | sym.Expr | None, dtype))
+            syty_sym = cast(sym.Symbol, syty)
+            if c_orlen(syty_sym.name, "type_"):
+                self.dtype = syty_sym
+                self.itsize = cast(SizeExpr, buffer_expr(syty_sym.name[5:]))
             else:
-                print(f'Note: {dtype} is specified without a `type_` field.\nTo work in the allocation code generator make sure the var name is `type_{dtype}`.')
-                self.dtype=buffer_expr(f'type_{syty.name}')
-                self.itsize = syty
+                print(
+                    f"Note: {dtype} is specified without a `type_` field.\nTo work in the allocation code generator make sure the var name is `type_{dtype}`."
+                )
+                self.dtype = cast(sym.Expr, buffer_expr(f"type_{syty_sym.name}"))
+                self.itsize = syty_sym
         self.order: str = order.upper()
-        self.init_op = init_op
-        if isinstance(align_ldim, tuple):
+        self.init_op: InitOp | None = init_op
+        if isinstance(self.align_ldim, tuple):
             self.bshape = self.align_ldim
         elif align_ldim is not None:
-            #otherwise we can't be certain about if align
-            print(self.align_ldim,self.itsize)
-            rsz = self.align_ldim // self.itsize
+            # otherwise we can't be certain about if align
+            print(self.align_ldim, self.itsize)
+            rsz = cast(SizeExpr, self.align_ldim) // self.itsize  # type: ignore[unsupported-operation]
             if self.order == "C":
-                self.bshape = (*s[:-1], roundup(s[-1],rsz))
+                self.bshape = (*shape_tuple[:-1], roundup(shape_tuple[-1], rsz))
             else:
-                self.bshape = (roundup(s[0],rsz), *s[1:])
+                self.bshape = (roundup(shape_tuple[0], rsz), *shape_tuple[1:])
         else:
-            self.bshape = s
-        #... this must have been bshape intended? Check later
-        #self.nbytes: int = int(np.prod(self.shape)) * self.dtype.itemsize
-        #likely
-        self.nbytes: int|SymExpr = mt.prod(self.bshape) * self.itsize
+            self.bshape = shape_tuple
+        # ... this must have been bshape intended? Check later
+        # self.nbytes: int = int(np.prod(self.shape)) * self.dtype.itemsize
+        # likely
+        self.nbytes: SizeExpr | None = mt.prod(self.bshape) * self.itsize  # type: ignore[no-matching-overload]
 
     def __repr__(self) -> str:
         shp = ", ".join(map(str, self.shape))
@@ -220,13 +243,15 @@ class ArrayNode(BaseNode):
           initialization.
         - Otherwise, the array is filled/broadcast-assigned with the value.
         """
+        if self.array is None:
+            return
         if self.init_op is not None:
             if callable(self.init_op):
                 self.init_op(self.array)
             else:
                 self.array[...] = self.init_op
 
-    def mk_array(self, buffer: Optional[np.ndarray] = None,sym_dic:dict=None) -> np.ndarray:
+    def mk_array(self, buffer: Optional[np.ndarray] = None, sym_dic: dict[sym.Symbol, int] | None = None) -> np.ndarray:
         """Materialize ``self.array`` either standalone or as a view on
         ``buffer``.
 
@@ -243,15 +268,16 @@ class ArrayNode(BaseNode):
 
         ``_rinit`` is invoked at the end to apply ``init_op``.
         """
+        y = False
         if y := (buffer is None and self.array is None):
-            bshape=eval_buff_exprs(self.bshape, sym_dic)
-            dtype=eval_buff_expr(self.dtype, sym_dic)
-            self.array = np.empty(bshape, dtype=dtype, order=self.order)
+            bshape = cast(tuple[int, ...], eval_buff_exprs(self.bshape, sym_dic))
+            dtype = self.dtype if isinstance(self.dtype, np.dtype) else eval_buff_expr(self.dtype, sym_dic)
+            self.array = np.empty(bshape, dtype=dtype, order=self.order)  # type: ignore[no-matching-overload]
         elif y := (buffer is not None):
-            bshape=eval_buff_exprs(self.bshape, sym_dic)
-            dtype=eval_buff_expr(self.dtype, sym_dic)
+            bshape = cast(tuple[int, ...], eval_buff_exprs(self.bshape, sym_dic))
+            dtype = self.dtype if isinstance(self.dtype, np.dtype) else eval_buff_expr(self.dtype, sym_dic)
             cnt = int(mt.prod(bshape))
-            view = np.frombuffer(
+            view = np.frombuffer(  # type: ignore[no-matching-overload]
                 buffer,
                 dtype=dtype,
                 count=cnt,
@@ -260,72 +286,83 @@ class ArrayNode(BaseNode):
             view = view.reshape(bshape, order=self.order)
             self.array = view
         if y and self.align_ldim is not None:
-            shape=eval_buff_exprs(self.shape, sym_dic)
-            self.barray = self.array
-            self.array = (
-                self.barray[..., : shape[-1]]
-                if self.order == "C"
-                else self.barray[: shape[0], ...]
-            )
+            shape = eval_buff_exprs(self.shape, sym_dic)
+            self.barray = cast(np.ndarray, self.array)
+            self.array = self.barray[..., : shape[-1]] if self.order == "C" else self.barray[: shape[0], ...]
         self._rinit()
-        return self.array
+        return cast(np.ndarray, self.array)
 
     @property
-    def value(self):
+    def value(self) -> np.ndarray | None:
         return self.array
-    
+
     @staticmethod
-    def array_genc(offstr,dtstr,dmstr,ord: str) -> str:
-        return f'fb_(buffer[:{offstr}],{dtstr}).reshape({dmstr}){"" if ord=="C" else ".T"}'
-    
-    npspec='np.'
-            
-    
-    def gen_call(self,bytexpr=None,bshapet=None,shapet=None,subn=None) -> tuple[str, str]:
-        """Generate string definition of array from symbolics or value."""
-        if not subn and not self.name: raise NameError('Arrays without name or sub name are not supported.')
-        st=self._short() #name first, if fails falls back to an integer counter (not related to container position)
-        rstr=f'{subn}_{st}' if subn else st
-        if bytexpr is None: bytexpr=self.nbytes
-        ols=gen_str(bytexpr)
-        ds=gen_str(self.dtype) if isinstance(self.dtype,SymExpr) else self.npspec + self.dtype.name
-        
-        if bshapet is None: bshapet=self.bshape
-        dms=gen_str(tuple(bshapet[::(1 if self.order=='C' else -1)]))
-        istr=self.array_genc(ols,ds,dms,self.order)
-        istr=f'{rstr} = {istr}'
-        if self.align_ldim is not None:
-            if shapet is None: shapet=self.shape
-            istr+= f'[{f"...,:{gen_str(shapet[-1])}" if self.order=="C" else f":{gen_str(shapet[0])},..."}]' 
-            #adding \t here seems a bit informal, given we don't know how gen_def will be utilized outside of this method.
-            #so do it at the function formatting scope.
-        return istr,rstr
-    
-    def sym_def(self) -> tuple[Expr | int, Sequence[Expr | int], Sequence[Expr | int]]:
-        return self.nbytes, self.bshape, self.shape
-    
-    @property
-    def free_symbols(self) -> set[Expr]:
-        """If sympy is installed this is an api to return all used symbols within the node."""
-        fs=set()
-        #itsize=symbol_ref is a special cased derived from type_{symbol_ref}'s so it won't go in the function header
-        #and gets handled by the allocation handler.
-        ld= not isinstance(self.align_ldim,Sequence)
-        for v in (self.shape if ld else chain(self.shape,self.align_ldim)):
-            if isinstance(v,SymExpr):
-                if v.is_symbol:fs.add(v)
-                else:fs.update(v.free_symbols)
-        if isinstance(v:=self.align_ldim,SymExpr):
-            if v.is_symbol:fs.add(v)
-            else:fs.update(v.free_symbols)
-        if isinstance(v:=self.dtype,SymExpr):
-            if v.is_symbol:fs.add(v)
-            else:fs.update(v.free_symbols)
+    def array_genc(offstr: str, dtstr: str, dmstr: str, ord: str) -> str:
+        return f"fb_(buffer[:{offstr}],{dtstr}).reshape({dmstr}){'' if ord == 'C' else '.T'}"
 
-        #it's probably a decent bit slower to just call self.nbytes.free_symbols. that also won't include the dtype but will include self.itsize which we dont want
-        
+    npspec = "np."
+
+    def gen_call(self, *args: object, **kwargs: object) -> tuple[str, str]:
+        """Generate string definition of array from symbolics or value."""
+        bytexpr = kwargs.get("bytexpr") if "bytexpr" in kwargs else (args[0] if len(args) > 0 else None)
+        bshapet = kwargs.get("bshapet") if "bshapet" in kwargs else (args[1] if len(args) > 1 else None)
+        shapet = kwargs.get("shapet") if "shapet" in kwargs else (args[2] if len(args) > 2 else None)
+        subn = kwargs.get("subn") if "subn" in kwargs else (args[3] if len(args) > 3 else None)
+        if not subn and not self.name:
+            raise NameError("Arrays without name or sub name are not supported.")
+        st = self._short()  # name first, if fails falls back to an integer counter (not related to container position)
+        rstr = f"{subn}_{st}" if subn else st
+        if bytexpr is None:
+            bytexpr = self.nbytes
+        ols = gen_str(bytexpr)
+        ds = gen_str(self.dtype) if isinstance(self.dtype, sym.Expr) else self.npspec + self.dtype.name
+
+        if bshapet is None:
+            bshapet = self.bshape
+        bshape_seq = cast(Sequence[SizeExpr], bshapet)
+        dms = gen_str(tuple(bshape_seq[:: (1 if self.order == "C" else -1)]))
+        istr = self.array_genc(ols, ds, dms, self.order)
+        istr = f"{rstr} = {istr}"
+        if self.align_ldim is not None:
+            if shapet is None:
+                shapet = self.shape
+            shape_seq = cast(Sequence[SizeExpr], shapet)
+            istr += f"[{f'...,:{gen_str(shape_seq[-1])}' if self.order == 'C' else f':{gen_str(shape_seq[0])},...'}]"
+            # adding \t here seems a bit informal, given we don't know how gen_def will be utilized outside of this method.
+            # so do it at the function formatting scope.
+        return istr, rstr
+
+    def sym_def(self) -> tuple[SizeExpr | None, Sequence[SizeExpr], Sequence[SizeExpr]]:
+        return cast(SizeExpr, self.nbytes), self.bshape, self.shape
+
+    @property
+    def free_symbols(self) -> set[Any]:
+        """If sympy is installed this is an api to return all used symbols within the node."""
+        fs: set[Any] = set()
+        # itsize=symbol_ref is a special cased derived from type_{symbol_ref}'s so it won't go in the function header
+        # and gets handled by the allocation handler.
+        align_seq = self.align_ldim if isinstance(self.align_ldim, Sequence) else None
+        for v in self.shape if align_seq is None else chain(self.shape, align_seq):
+            if isinstance(v, sym.Expr):
+                if v.is_symbol:
+                    fs.add(v)
+                else:
+                    fs.update(cast(set[Any], v.free_symbols))
+        if isinstance(v := self.align_ldim, sym.Expr):
+            if v.is_symbol:
+                fs.add(v)
+            else:
+                fs.update(cast(set[Any], v.free_symbols))
+        if isinstance(v := self.dtype, sym.Expr):
+            if v.is_symbol:
+                fs.add(v)
+            else:
+                fs.update(cast(set[Any], v.free_symbols))
+
+        # it's probably a decent bit slower to just call self.nbytes.free_symbols. that also won't include the dtype but will include self.itsize which we dont want
+
         return fs
-    
+
 
 class ContainerNode(BaseNode):
     """Internal node controlling how children share backing memory.
@@ -346,7 +383,8 @@ class ContainerNode(BaseNode):
         Only for ``DISTINCT``: enables per-child rounding so contiguous regions
         can exactly match external memory layouts.
     """
-    #SYM_EQN=MulSym
+
+    # SYM_EQN=MulSym
 
     def __init__(
         self,
@@ -358,9 +396,9 @@ class ContainerNode(BaseNode):
     ) -> None:
         super().__init__(name=name, no_merge=no_merge)
         self.rule: int = int(rule)
-        self.align = align and rule==BufferMap.DISTINCT  # only effective for distinct rule nodes.
-        self.aligned_eqns=[]
-        self.nbytes:int|SymExpr
+        self.align = align and rule == BufferMap.DISTINCT  # only effective for distinct rule nodes.
+        self.aligned_eqns = []
+        self.nbytes: SizeExpr | None
         self.add(*children)
 
     def add(self, *kids: "BaseNode") -> "ContainerNode":
@@ -378,7 +416,7 @@ class ContainerNode(BaseNode):
         Existing instances of the same nodes are first removed to avoid
         duplicates, then the desired order is established.
         Returns ``self`` for chaining.
-        # """
+        #"""
         # for k in kids: #assigning to self.children already does a nodemixin check
         #     if not isinstance(k, BaseNode):
         #         raise TypeError("Children must be BaseNode instances")
@@ -398,7 +436,7 @@ class ContainerNode(BaseNode):
         Raises ``ValueError`` if the indices do not form a valid permutation.
         Returns ``self`` for chaining.
         """
-        children = list(self.children)
+        children: list[BaseNode] = list(self.children)
         n = len(children)
         if len(indices) != n:
             raise ValueError(f"Expected {n} indices, got {len(indices)}")
@@ -416,7 +454,7 @@ class ContainerNode(BaseNode):
         order.
         """
         # Copy current children to a mutable list
-        children = list(self.children)
+        children: list[BaseNode] = list(self.children)
         # Use dict to preserve requested order and avoid duplicates
         positions = {}
         for idx in idxs:
@@ -436,7 +474,7 @@ class ContainerNode(BaseNode):
         popped = [children[i] for i in positions.keys()]
         # Remove from highest index to lowest to avoid shifting
         for pos in sorted(positions.keys(), reverse=True):
-            node = children.pop(pos)
+            node: BaseNode = children.pop(pos)
             # Detach from this container
             node.parent = None
         # Update children tuple
@@ -445,8 +483,8 @@ class ContainerNode(BaseNode):
 
     def build_flatmap(
         self,
-        align: int = BufferAlign.AVX512,
-        alignb: int = BufferAlign.PAGE,
+        align: SizeExpr = BufferAlign.AVX512,
+        alignb: SizeExpr = BufferAlign.PAGE,
         name_join: bool = True,
         force_merge: bool = False,
         verbose: bool = False,
@@ -456,7 +494,9 @@ class ContainerNode(BaseNode):
         Convenience wrapper around ``build_bmap`` → ``allocate_bmap`` →
         ``flat_inits``. See those functions for details.
         """
-        pass
+        pass #will finish later
+        from bmap._procedures import build_bmap, flat_inits
+
         build_bmap(
             self,
             align=align,
@@ -464,47 +504,55 @@ class ContainerNode(BaseNode):
             force_merge=force_merge,
             verbose=verbose,
         )
-        #allocate_bmap(self, align=align,alignb=alignb)
+        # allocate_bmap(self, align=align,alignb=alignb)
         return flat_inits(self)
-    
+
     @staticmethod
-    def s_def(syq) -> str:
-        ols=gen_str(syq)
-        return f'buffer = buffer[{ols}:]'
-    
-    def gen_call(self,setexpr=None, subn=None) -> tuple[str, None] | tuple[tuple[str, ...], None]:
+    def s_def(syq: sym.Expr | int | object | None) -> str:
+        ols = gen_str(syq)
+        return f"buffer = buffer[{ols}:]"
+
+    def gen_call(self, *args: object, **kwargs: object) -> tuple[str, None] | tuple[tuple[str, ...], None]:
         """See BaseNode docstring."""
+        setexpr = kwargs.get("setexpr") if "setexpr" in kwargs else (args[0] if args else None)
         if self.align:
-            if setexpr is None: setexpr = self.aligned_eqns
-            return (*(self.s_def(s) for s in setexpr),),None
+            if setexpr is None:
+                setexpr = self.aligned_eqns
+            setexpr_seq = cast(Sequence[SizeExpr], setexpr)
+            return (*(self.s_def(s) for s in setexpr_seq),), None
         else:
-            if setexpr is None: setexpr = self.nbytes
-            return self.s_def(setexpr),None
-        
+            if setexpr is None:
+                setexpr = self.nbytes
+            return self.s_def(setexpr), None
+
     def sym_def(self):
         return self.aligned_eqns if self.align else self.nbytes
 
-
     def __repr__(self) -> str:
-        return f"|Node {self._short()} rule={'S' if self.rule == BufferMap.SHARED else 'D'} children={len(self.children)} {f'nbytes={self.nbytes}'if hasattr(self,'nbytes') else ''}|"
+        return f"|Node {self._short()} rule={'S' if self.rule == BufferMap.SHARED else 'D'} children={len(self.children)} {f'nbytes={self.nbytes}' if hasattr(self, 'nbytes') else ''}|"
 
     def __str__(self) -> str:
         v = str(RenderTree(self, style=DoubleStyle))
         return v
-    
+
     @property
     def free_symbols(self):
         """If sympy is installed this is an api to return all used symbols within the node."""
-        #it should be necessary and a little slower to call free_symbols on the container, than directly on value or array nodes.
-        #which is why the build buffer map function only calls array/value nodes, they will also contain all symbols used on the graph there.
+        # it should be necessary and a little slower to call free_symbols on the container, than directly on value or array nodes.
+        # which is why the build buffer map function only calls array/value nodes, they will also contain all symbols used on the graph there.
         if self.aligned_eqns:
-            return set().union(*(eq.free_symbols for eq in self.aligned_eqns if isinstance(eq,SymExpr)))
-        elif self.nbytes is not None: #assume nbytes has been simplified, so recursion to a large tree of nodes could be slower than the nbytes expr check. (post simplify)
-            if isinstance(self.nbytes,SymExpr):
+            return set().union(*(eq.free_symbols for eq in self.aligned_eqns if isinstance(eq, sym.Expr)))
+        elif (
+            self.nbytes is not None
+        ):  # assume nbytes has been simplified, so recursion to a large tree of nodes could be slower than the nbytes expr check. (post simplify)
+            if isinstance(self.nbytes, sym.Expr):
                 return self.nbytes.free_symbols
-            else: return _ESET
-        elif len(cs:=self.children)>0:
+            else:
+                return _ESET
+        elif len(cs := self.children) > 0:
             return set().union(*(c.free_symbols for c in cs))
-        else: return _ESET
+        else:
+            return _ESET
 
-ItemNodeT = ValueNode | ArrayNode
+
+ItemNodeT: TypeAlias = ValueNode | ArrayNode
