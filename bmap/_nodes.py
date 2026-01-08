@@ -54,16 +54,22 @@ class BaseNode(NodeMixin):
         For arrays: not used directly; see ``ArrayNode.array``.
     """
 
+    id: int
+    label: Optional[str]
+    no_merge: bool
+    nbytes: SizeExpr | None
+    ofs: Optional[int]
+
     def __init__(
         self,
         name: Optional[Union[str, int, float]] = None,
         no_merge: bool = False,
     ) -> None:
-        self.id: int = _IDGen.new_id()
-        self.label: Optional[str] = str(name) if name is not None else None
-        self.no_merge: bool = bool(no_merge)
-        self.nbytes: SizeExpr | None = None
-        self.ofs: Optional[int] = None
+        self.id = _IDGen.new_id()
+        self.label = str(name) if name is not None else None
+        self.no_merge = bool(no_merge)
+        self.nbytes = None
+        self.ofs = None
         # self.buffer: Optional[np.ndarray] = None
 
     def _short(self) -> str:
@@ -120,7 +126,9 @@ class ValueNode(BaseNode):
         name: Optional[Union[str, int, float]] = None,
     ) -> None:
         super().__init__(name=name, no_merge=True)
-        self.value: BuffExprMaybe = buffer_expr(value, safe=False)
+        self.value = buffer_expr(value, safe=False)
+
+    value: BuffExprMaybe
 
     @property
     def vtype(self) -> type[sym.Expr] | type[NoneType] | type[sym.Symbol] | type[int]:
@@ -172,6 +180,16 @@ class ArrayNode(BaseNode):
       that receives the newly created array for in-place initialization.
     """
 
+    shape: Sequence[SizeExpr]
+    dtype: np.dtype | sym.Expr
+    bshape: Sequence[SizeExpr]
+    array: Optional[np.ndarray]
+    barray: Optional[np.ndarray]
+    align_ldim: SizeExpr | Sequence[SizeExpr] | None
+    itsize: SizeExpr
+    order: str
+    init_op: InitOp | None
+
     def __init__(
         self,
         shape: ShapeLike = (0,),
@@ -185,19 +203,15 @@ class ArrayNode(BaseNode):
         s = dt_buff_exprs((shape,) if isinstance(shape, int) else shape)
         shape_seq = s if isinstance(s, tuple) else (s,)
         shape_tuple = cast(tuple[SizeExpr, ...], shape_seq)
-        self.shape: Sequence[SizeExpr] = shape_tuple
-        self.dtype: np.dtype | sym.Expr
-        self.bshape: Sequence[SizeExpr]
-        self.array: Optional[np.ndarray] = None
-        self.barray: Optional[np.ndarray]
-        self.align_ldim: SizeExpr | Sequence[SizeExpr] | None = cast(
-            SizeExpr | Sequence[SizeExpr] | None, dt_buff_exprs(align_ldim)
-        )
+        self.shape = shape_tuple
+        self.array = None
+        self.barray = None
+        self.align_ldim = cast(SizeExpr | Sequence[SizeExpr] | None, dt_buff_exprs(align_ldim))
         if isinstance(dtype, type) and issubclass(dtype, (np.generic, Number)):
             dtype = np.dtype(dtype)
         if isinstance(dtype, np.dtype):
             self.dtype = dtype  # np.dtype(dtype)
-            self.itsize: SizeExpr = dtype.itemsize
+            self.itsize = dtype.itemsize
         else:
             syty = buffer_expr(cast(int | str | sym.Expr | None, dtype))
             syty_sym = cast(sym.Symbol, syty)
@@ -210,8 +224,8 @@ class ArrayNode(BaseNode):
                 )
                 self.dtype = cast(sym.Expr, buffer_expr(f"type_{syty_sym.name}"))
                 self.itsize = syty_sym
-        self.order: str = order.upper()
-        self.init_op: InitOp | None = init_op
+        self.order = order.upper()
+        self.init_op = init_op
         if isinstance(self.align_ldim, tuple):
             self.bshape = self.align_ldim
         elif align_ldim is not None:
@@ -227,7 +241,7 @@ class ArrayNode(BaseNode):
         # ... this must have been bshape intended? Check later
         # self.nbytes: int = int(np.prod(self.shape)) * self.dtype.itemsize
         # likely
-        self.nbytes: SizeExpr | None = mt.prod(self.bshape) * self.itsize  # type: ignore[no-matching-overload]
+        self.nbytes = mt.prod(self.bshape) * self.itsize  # type: ignore[no-matching-overload]
 
     def __repr__(self) -> str:
         shp = ", ".join(map(str, self.shape))
@@ -385,6 +399,9 @@ class ContainerNode(BaseNode):
     """
 
     # SYM_EQN=MulSym
+    rule: int
+    align: bool
+    aligned_eqns: list[SizeExpr]
 
     def __init__(
         self,
@@ -395,10 +412,9 @@ class ContainerNode(BaseNode):
         align: bool = True,
     ) -> None:
         super().__init__(name=name, no_merge=no_merge)
-        self.rule: int = int(rule)
+        self.rule = int(rule)
         self.align = align and rule == BufferMap.DISTINCT  # only effective for distinct rule nodes.
         self.aligned_eqns = []
-        self.nbytes: SizeExpr | None
         self.add(*children)
 
     def add(self, *kids: "BaseNode") -> "ContainerNode":
@@ -494,7 +510,7 @@ class ContainerNode(BaseNode):
         Convenience wrapper around ``build_bmap`` → ``allocate_bmap`` →
         ``flat_inits``. See those functions for details.
         """
-        pass #will finish later
+        pass  # will finish later
         from bmap._procedures import build_bmap, flat_inits
 
         build_bmap(

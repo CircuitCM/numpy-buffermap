@@ -211,7 +211,7 @@ def build_bmap(
     name_join: bool = True,
     force_merge: bool = False,
     verbose: bool = False,
-) -> set:
+) -> set[sym.Symbol]:
     """Run reduction → size/offset propagation on a buffer-map tree.
 
     Parameters
@@ -227,7 +227,7 @@ def build_bmap(
         If true, run ``check_bmap`` to report duplicate labels.
     """
     reduce_bmap(bmap, name_join=name_join, force_merge=force_merge)
-    symbols: set[object] = set()
+    symbols: set[sym.Symbol] = set()
     _compute_nbytes(bmap, align=align, _symbols=symbols)
     if verbose:
         check_bmap(bmap)
@@ -279,7 +279,7 @@ def _compute_nbytes(
     node: BaseNode,
     align: SizeExpr = BufferAlign.AVX512,
     simplify: bool = True,
-    _symbols: set[object] | None = None,
+    _symbols: set[sym.Symbol] | None = None,
 ) -> SizeExpr:
     """Compute subtree byte sizes with alignment rounding.
 
@@ -435,6 +435,7 @@ def build_flatmap(
     force_merge: bool = False,
     verbose: bool = False,
 ):
+    """Build and return initialized leaf values in preorder."""
     build_bmap(
         self,
         align=align,

@@ -21,3 +21,9 @@ dependencies = [
 numba = [
     "numba>=0.59.0",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["bmap"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"types/bmap" = "bmap"

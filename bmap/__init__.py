@@ -35,6 +35,8 @@ helpers (`flatten_items`, `flat_inits`) return leaves or initialized values in
 preorder.
 """
 
+from sympy import Expr as SymExpr, Symbol as SymSymbol
+
 from . import _util as _  # load it first
 from ._nodes import ArrayNode, BaseNode, ContainerNode, ItemNodeT, ValueNode
 from ._procedures import (
@@ -71,6 +73,8 @@ from ._util import (
     dt_buff_exprs,
     eval_buff_expr,
     eval_buff_exprs,
+    gen_add,
+    gen_max,
     is_eqn,
     mk_buff_dict,
     numb_syms,
@@ -88,6 +92,8 @@ __all__ = [
     "ContainerNode",
     "ItemNodeT",
     "NativeTypes",
+    "SymExpr",
+    "SymSymbol",
     "ValueNode",
     "aligned_buffer",
     "allocate_bmap",
@@ -112,6 +118,8 @@ __all__ = [
     "f_arspec",
     "f_arspec_i",
     "ft_arspec",
+    "gen_add",
+    "gen_max",
     "is_eqn",
     "mk_buff_dict",
     "numb_syms",

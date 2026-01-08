@@ -2,8 +2,9 @@
 
 import importlib.util
 import itertools
+from numbers import Number
 from types import NoneType
-from typing import Any, Callable, Sequence, TypeAlias, cast
+from typing import Any, Callable, Sequence, TypeAlias, cast, overload
 
 import numpy as np
 import sympy as sym
@@ -26,11 +27,11 @@ BuffExpr: TypeAlias = sym.Expr | int
 BuffExprMaybe: TypeAlias = BuffExpr | None
 BuffExprSeq: TypeAlias = Sequence[BuffExpr]
 BuffExprTuple: TypeAlias = tuple[BuffExprMaybe, ...]
-SymBinFunc: TypeAlias = Callable[..., sym.Expr]
 SizeExpr: TypeAlias = int | sym.Expr
-ShapeLike: TypeAlias = SizeExpr | Sequence[SizeExpr]
+SizeSpec: TypeAlias = SizeExpr | str
+ShapeLike: TypeAlias = SizeSpec | Sequence[SizeSpec]
 InitOp: TypeAlias = int | float | np.ndarray | Callable[[np.ndarray], Any]
-DTypeLike: TypeAlias = np.dtype | np.generic | type[np.generic] | sym.Expr | str | int
+DTypeLike: TypeAlias = np.dtype | np.generic | type[np.generic] | sym.Expr | str | int | type[Number] | type[int]
 
 CD_ = sym.Function("cd_")  # ceildiv
 FD_ = sym.Function("fd_")  # floordiv
@@ -154,6 +155,8 @@ def gen_str(expr) -> str:
 
 
 class BufferMap:
+    """Container sharing rules for buffer layout."""
+
     SHARED: int = 0
     DISTINCT: int = 1
 
@@ -334,23 +337,42 @@ def buffer_expr(sy: int | str | sym.Expr | None, warn: bool = True, safe: bool =
 
 
 def mk_buff_dict(dc):
+    """Normalize a mapping into a buffer-symbol keyed dict."""
     return {buffer_expr(k): v for k, v in dc.items()}
 
 
 def bdict(**kwargs):
+    """Convenience wrapper for ``mk_buff_dict`` using keyword args."""
     return mk_buff_dict(kwargs)
 
 
-def buffer_symbols(*tgt) -> BuffExprMaybe | BuffExprTuple:
+@overload
+def buffer_symbols(*tgt: str) -> tuple[sym.Symbol, ...]: ...
+
+
+@overload
+def buffer_symbols(*tgt: object) -> BuffExprMaybe | tuple[BuffExprMaybe, ...]: ...
+
+
+def buffer_symbols(*tgt: object) -> BuffExprMaybe | tuple[BuffExprMaybe, ...]:
     """Make buffer symbols in the same way as sym.symbols."""
+    target: object | tuple[object, ...] = tgt
     if len(tgt) == 1:
-        tgt = tgt[0]
-    if isinstance(tgt, str) and " " in tgt:
-        return (*(buffer_expr(st) for st in tgt.split(" ") if not check_eqstr(st) and st != ""),)
-    return dt_buff_exprs(tgt)
+        target = tgt[0]
+    if isinstance(target, str) and " " in target:
+        return (*(buffer_expr(st) for st in target.split(" ") if not check_eqstr(st) and st != ""),)
+    return dt_buff_exprs(target)
 
 
-def dt_buff_exprs(tgt) -> BuffExprMaybe | BuffExprTuple:
+@overload
+def dt_buff_exprs(tgt: Sequence[object]) -> tuple[BuffExprMaybe, ...]: ...
+
+
+@overload
+def dt_buff_exprs(tgt: object) -> BuffExprMaybe: ...
+
+
+def dt_buff_exprs(tgt) -> BuffExprMaybe | tuple[BuffExprMaybe, ...]:
     """Ducktape symbols in target, either return as tuple or singular value if not a sequence."""
     if not isinstance(tgt, str) and isinstance(tgt, Sequence):
         return (*(buffer_expr(t) for t in tgt),)
@@ -414,6 +436,7 @@ def cf_plcsym(
 
 
 def numb_syms(prefix: str = "t", start: int = 0):
+    """Yield an infinite stream of buffer symbols with a numeric suffix."""
     while True:
         name = "%s%s" % (prefix, start)
         s = buffer_expr(name)
@@ -422,6 +445,7 @@ def numb_syms(prefix: str = "t", start: int = 0):
 
 
 def is_eqn(expr) -> bool:
+    """Return True when ``expr`` is a non-atomic sympy expression."""
     return isinstance(expr, sym.Expr) and not expr.is_Atom  # or is_symbol but atom probably more correct.
 
 
@@ -470,6 +494,8 @@ def _arrbxpr(exls, exprss, ct) -> tuple[object, object, object]:
 
 
 class BButil:
+    """Helper utilities for code-generated buffer allocator strings."""
+
     typeref1 = lambda t: f"{t[5:]} = np.dtype({t}).itemsize"
     typeref2 = lambda t: f"{t[5:]} = nbu.prim_info({t},3)"  # for my numba util library
 
@@ -656,7 +682,7 @@ def post_process_cse(repls, reduced, symbols, oneassign_del=True, clean_order=Tr
 def cse_codereduction(exprs: Sequence[sym.Expr], prefix: str = "t", optimizations: str = "basic", symbols=numb_syms):
     """
     Runs through the classic sympy cse reduction, but improves it for integer indexing code by:
-     - Handling floor and ceiling operators better.  
+     - Handling floor and ceiling operators better.
      - Removes reductions that have only one reference.
      - Formats reductions into a layer of tuple assignments for aesthetic quality.
     """
