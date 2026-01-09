@@ -4,7 +4,7 @@ import importlib.util
 import itertools
 from numbers import Number
 from types import NoneType
-from typing import Any, Callable, Sequence, TypeAlias, overload
+from typing import Any, Callable, Literal, LiteralString, Sequence, TypeAlias, TypeVar, cast, overload
 
 import numpy as np
 import sympy as sym
@@ -18,22 +18,22 @@ if importlib.util.find_spec("numba"):
     from numba import typeof  # type: ignore[missing-import]
 else:
 
-    def typeof(*args) -> np.dtype:
-        return np.dtype(type(args[0]))
+    def typeof(*args) -> np.dtype: return np.dtype(type(args[0]))
 
     rgc = lambda f: f
 
-BuffExpr: TypeAlias = sym.Expr | int
-BuffExprMaybe: TypeAlias = BuffExpr | None
-BuffExprSeq: TypeAlias = Sequence[BuffExpr]
-BuffExprTuple: TypeAlias = tuple[BuffExprMaybe, ...]
-SizeExpr: TypeAlias = int | sym.Expr
-SizeSeq: TypeAlias = Sequence[SizeExpr]
-SizeSpec: TypeAlias = BuffExpr | str
-ShapeLike: TypeAlias = SizeSpec | Sequence[SizeSpec]
-InitOp: TypeAlias = int | float | np.ndarray | Callable[[np.ndarray], Any]
-DTypeLike: TypeAlias = np.dtype | np.generic | type[np.generic] | sym.Expr | str | int | type[Number] | type[int]
+SizeParam: TypeAlias = sym.Expr | int
+SizeMaybe: TypeAlias = SizeParam | None
+SizeSeq: TypeAlias = Sequence[SizeParam]
+SizeInput: TypeAlias = SizeParam | str
+ShapeInput: TypeAlias = SizeInput | Sequence[SizeInput]
+ShapeMaybe: TypeAlias = ShapeInput|None
+ShapeParam: TypeAlias = SizeSeq
+InitOp: TypeAlias = None | np.ndarray | Callable[[np.ndarray], Any]
+DTypeLike: TypeAlias = np.dtype | np.generic | sym.Symbol | str | type
 SymbolKey: TypeAlias = sym.Symbol | str
+MaybeArray: TypeAlias = np.ndarray|None
+T=TypeVar('T')
 
 CD_ = sym.Function("cd_")  # ceildiv
 FD_ = sym.Function("fd_")  # floordiv
@@ -43,14 +43,12 @@ FD_FUNC: sym.Function = FD_
 ### Helpers
 
 
-class _UseOther:
-    __slots__ = ()
+class _UseOther: __slots__ = ()
 
 
 UO = use_other = _UseOther()
 UseOther: TypeAlias = _UseOther
-ShapeParam: TypeAlias = ShapeLike | None | UseOther
-InitParam: TypeAlias = InitOp | None | UseOther
+InitParam: TypeAlias = InitOp | UseOther
 _ESET: set[sym.Basic] = set()
 HAS_SYM = True  # dead code, sympy is now required.
 _GB_EXPR = {}
@@ -59,31 +57,27 @@ NT = NoneType
 
 # note sympy is generally not great with integer simplifications but it will take time to figure out a custom method
 # so for now we use this.
-def gen_max(sq: Sequence[SizeExpr], simplify: bool = True) -> sym.Max | int:
+def gen_max(sq: SizeSeq, simplify: bool = True) -> sym.Max | int:
     """General maximum, symbols and values."""
     mv = sym.Max(*sq)
-    if mv.is_number:
-        return int(mv)
+    if mv.is_number: return int(mv)
     elif simplify:
         # calling simplify solely for max (not the inputs) likely does nothing.
         return mv
     return mv
 
 
-def gen_add(sq: Sequence[SizeExpr], simplify: bool = True) -> sym.Expr | int:
+def gen_add(sq: SizeSeq, simplify: bool = True) -> sym.Expr | int:
     """General add, symbols and values."""
     # it's faster to unload into a single Add expression than it is to +=
     mv = sym.Add(*sq)
-    if mv.is_number:
-        return int(mv)
-    elif simplify:
-        return mv.factor()  # fraction=False,deep=True)#.simplify()
+    if mv.is_number: return int(mv)
+    elif simplify: return mv.factor()  # fraction=False,deep=True)#.simplify()
     return mv
 
 
-def roundup(var: SizeExpr, rup: SizeExpr | int | None):
-    if rup is None or (isinstance(rup, int) and rup < 1):
-        return var
+def roundup(var: SizeParam, rup: SizeParam | int | None):
+    if rup is None or (isinstance(rup, int) and rup < 1): return var
     return sym.ceiling(var / rup) * rup
 
 
@@ -92,8 +86,7 @@ _GB_EXPR["Symbol"] = lambda s: sym.Symbol(s, integer=True, positive=True)
 
 
 class GenPrinter(StrPrinter):
-    def _print_Max(self, expr):
-        return "max(%s)" % ", ".join(self._print(a) for a in expr.args)  # type: ignore[missing-attribute]
+    def _print_Max(self, expr): return "max(%s)" % ", ".join(self._print(a) for a in expr.args)  # type: ignore[missing-attribute]
 
     def _print_floor(self, expr):
         x = expr.args[0]
@@ -103,14 +96,10 @@ class GenPrinter(StrPrinter):
             num_s = self._print(num)  # type: ignore[missing-attribute]
             den_s = self._print(den)  # type: ignore[missing-attribute]
             match (na, da):
-                case (True, True):
-                    return f"({num_s}//{den_s})"
-                case (False, False):
-                    return f"(({num_s})//({den_s}))"
-                case (False, True):
-                    return f"({num_s}//({den_s}))"
-                case (True, False):
-                    return f"(({num_s})//{den_s})"
+                case (True, True): return f"({num_s}//{den_s})"
+                case (False, False): return f"(({num_s})//({den_s}))"
+                case (False, True): return f"({num_s}//({den_s}))"
+                case (True, False): return f"(({num_s})//{den_s})"
 
         # if hasattr(super(),'_print_floor'):
         #     return super()._print_floor(expr)
@@ -138,23 +127,17 @@ class GenPrinter(StrPrinter):
         ys = self._print(y)  # type: ignore[missing-attribute]
 
         # special-case denominator == 1
-        if y.is_number and y == 1:
-            return xs if na else f"({xs})"
+        if y.is_number and y == 1: return xs if na else f"({xs})"
 
         match (na, da):
-            case (True, True):
-                return f"({xs}//{ys})"
-            case (False, False):
-                return f"(({xs})//({ys}))"
-            case (False, True):
-                return f"({xs}//({ys}))"
-            case (True, False):
-                return f"(({xs})//{ys})"
+            case (True, True): return f"({xs}//{ys})"
+            case (False, False): return f"(({xs})//({ys}))"
+            case (False, True): return f"({xs}//({ys}))"
+            case (True, False): return f"(({xs})//{ys})"
 
     def _print_Function(self, expr):
         # expr.func is the function, expr is the applied function
-        if expr.func.__name__ == "fd_":
-            return self._print_fd_(expr)
+        if expr.func.__name__ == "fd_": return self._print_fd_(expr)
 
         return super()._print_Function(expr)  # type: ignore[missing-attribute]
 
@@ -162,8 +145,7 @@ class GenPrinter(StrPrinter):
 _gpr = GenPrinter()
 
 
-def gen_str(expr) -> str:
-    return _gpr.doprint(expr)
+def gen_str(expr) -> str: return _gpr.doprint(expr)
 
 
 class BufferMap:
@@ -232,14 +214,13 @@ class _IDGen:
     _ctr = itertools.count()
 
     @classmethod
-    def new_id(cls) -> int:
-        return next(cls._ctr)
+    def new_id(cls) -> int: return next(cls._ctr)
 
 
 @rgc
 def aligned_buffer(
-    n_bytes: SizeExpr,
-    align: SizeExpr = BufferAlign.AVX512,
+    n_bytes: SizeParam,
+    align: SizeParam = BufferAlign.AVX512,
 ) -> np.ndarray:
     """Return an aligned ``uint8`` view of length ``n_bytes``.
 
@@ -271,8 +252,7 @@ def check_eqstr(st: str) -> bool:
     Assumes input is either symbol or equation str.
     """
     for c in st:
-        if c in _CHKEQ:
-            return True
+        if c in _CHKEQ: return True
     return False
 
 
@@ -282,12 +262,23 @@ def c_orlen(tgt, mtch: str):
     This is only possible if ``len(tgt) >= len(mtch)``, so it avoids a runtime
     error.
     """
-    if len(tgt) < len(mtch):
-        return False
+    if len(tgt) < len(mtch): return False
     return tgt[: len(mtch)] == mtch
 
 
-def buffer_expr(sy: int | str | sym.Expr | None, warn: bool = True, safe: bool = True) -> BuffExprMaybe:
+@overload
+def buffer_expr(sy: str) -> sym.Symbol: ...
+@overload
+def buffer_expr(sy: str) -> sym.Expr: ...
+# @overload
+# def buffer_expr(sy: Number) -> int: ...
+@overload
+def buffer_expr(sy: SizeInput) -> SizeParam: ...
+@overload
+def buffer_expr(sy: SizeInput|None) -> SizeMaybe: ...
+
+
+def buffer_expr(sy:SizeInput|None, warn:bool = True)->SizeMaybe:
     """Buffer symbol or expression generator with object cache for faster tree operations.
 
     If ``sy`` is a string without whitespace, or an existing symbol: makes a
@@ -309,8 +300,7 @@ def buffer_expr(sy: int | str | sym.Expr | None, warn: bool = True, safe: bool =
     with a literal int value, than it is to call ``.subs`` and then int cast an
     object expression or symbol in sympy.
     """
-    if isinstance(sy, int) or sy is None:
-        return sy  # This allows value negatives which might be intentional. and None is a special return type.
+    if isinstance(sy, int) or sy is None: return sy  # This allows value negatives which might be intentional. and None is a special return type.
     if isinstance(sy, str):
         syc = _SYMCACHE.get(sy, None)
         if syc is None:
@@ -319,13 +309,12 @@ def buffer_expr(sy: int | str | sym.Expr | None, warn: bool = True, safe: bool =
                 # so we will also cache the symbols from the expression bc they could appear in the propagation.
                 # note if this comes out anything other than an expression or doesn't have free_symbols it will error.
                 # Which means symbols need to be a valid string without whitespaces or any other notation.
-                exp: sym.Expr = sym.parse_expr(sy, global_dict=_GB_EXPR)
+                exp = sym.parse_expr(sy, global_dict=_GB_EXPR)
                 # print(exp)
                 if isinstance(exp, sym.Symbol):
                     _SYMCACHE[sy] = exp
                     _SYMCACHE[exp.name] = exp
-                    if warn:
-                        print(
+                    if warn: print(
                             f'Warning: Buffer Symbol cached under "{sy}" and "{exp.name}", '
                             "correct symbol formatting does not include extra whitespace "
                             "or operators."
@@ -334,8 +323,7 @@ def buffer_expr(sy: int | str | sym.Expr | None, warn: bool = True, safe: bool =
                     _SYMCACHE[sy] = exp
                     sybs = {syb for syb in exp.free_symbols if isinstance(syb, sym.Symbol)}
                     for syb in sybs:
-                        if syb.name not in _SYMCACHE:
-                            _SYMCACHE[syb.name] = syb
+                        if syb.name not in _SYMCACHE: _SYMCACHE[syb.name] = syb
                 return exp
             else:
                 _SYMCACHE[sy] = syc = sym.Symbol(sy, integer=True, positive=True)
@@ -372,120 +360,75 @@ def buffer_expr(sy: int | str | sym.Expr | None, warn: bool = True, safe: bool =
     return int(sy)  # which will raise if this isn't possible.
 
 
-def mk_buff_dict(dc):
+def mk_buff_dict(dc:dict[SizeInput,Any])->dict[SizeParam,Any]:
     """Normalize a mapping into a buffer-symbol keyed dict."""
     return {buffer_expr(k): v for k, v in dc.items()}
 
 
-def bdict(**kwargs):
+def bdict(**kwargs)->dict[SizeParam,Any]:
     """Convenience wrapper for ``mk_buff_dict`` using keyword args."""
-    return mk_buff_dict(kwargs)
+    return mk_buff_dict(kwargs) #type: ignore[bad-argument-type]
 
 
 @overload
-def buffer_symbols(tgt: str) -> tuple[sym.Symbol, ...]: ...
-
-
+def buffer_symbols(tgt: str) -> tuple[sym.Symbol,...]: ...
 @overload
-def buffer_symbols(tgt: str) -> sym.Symbol: ...
-
-
+def buffer_symbols(tgt: SizeInput) -> SizeParam: ...
+#technically could be wrong if user hands strings that could be expr's.
 @overload
-def buffer_symbols(tgt: str, *more: str) -> tuple[sym.Symbol, ...]: ...
-
-
+def buffer_symbols(tgt: str, *rest: str) -> tuple[sym.Symbol,...]: ... 
 @overload
-def buffer_symbols(tgt: object, *more: object) -> BuffExprMaybe | tuple[BuffExprMaybe, ...]: ...
+def buffer_symbols(tgt: SizeInput, *rest: SizeInput) ->SizeSeq: ...
 
 
-def buffer_symbols(tgt: object, *more: object) -> BuffExprMaybe | tuple[BuffExprMaybe, ...]:
+def buffer_symbols(tgt: SizeInput| Sequence[SizeInput],*rest:SizeInput) -> SizeParam |SizeSeq:
     """Make buffer symbols in the same way as sym.symbols."""
-    target: object | tuple[object, ...] = (tgt, *more) if more else tgt
-    if isinstance(target, str) and " " in target:
-        return (*(buffer_expr(st) for st in target.split(" ") if not check_eqstr(st) and st != ""),)
-    return dt_buff_exprs(target)
+    #merge *rest into tgt if rest exists
+    #if rest is not 0 then tgt should never be a sequence and it should fail.
+    if len(rest)!=0:return dt_buff_exprs((cast(SizeInput,tgt),*rest))
+    if isinstance(tgt, str) and " " in tgt: 
+        return (*(buffer_expr(st) for st in tgt.split(" ") if not check_eqstr(st) and st != ""),)
+    return dt_buff_exprs(tgt)
 
-
+#we have a reason to return a None for ducktape expressions but not for buffer_symbols.
 @overload
 def dt_buff_exprs(tgt: None) -> None: ...
-
-
 @overload
-def dt_buff_exprs(tgt: Sequence[SizeSpec]) -> tuple[BuffExpr, ...]: ...
-
-
+def dt_buff_exprs(tgt: SizeInput) -> SizeParam: ...
 @overload
-def dt_buff_exprs(tgt: SizeSpec) -> BuffExpr: ...
+def dt_buff_exprs(tgt: Sequence[SizeInput]) -> SizeSeq: ...
 
 
-@overload
-def dt_buff_exprs(tgt: Sequence[object]) -> tuple[BuffExprMaybe, ...]: ...
-
-
-@overload
-def dt_buff_exprs(tgt: object) -> BuffExprMaybe: ...
-
-
-def dt_buff_exprs(tgt) -> BuffExprMaybe | tuple[BuffExprMaybe, ...]:
+def dt_buff_exprs(tgt:SizeInput|Sequence[SizeInput]|None)->SizeMaybe|SizeSeq:
     """Ducktape symbols in target, either return as tuple or singular value if not a sequence."""
-    if not isinstance(tgt, str) and isinstance(tgt, Sequence):
-        return (*(buffer_expr(t) for t in tgt),)
-    return buffer_expr(tgt)
+    if not isinstance(tgt, str) and isinstance(tgt, Sequence): return (*(buffer_expr(t) for t in tgt),)
+    else: return buffer_expr(tgt)
 
 
 def eval_buff_expr(evt: Any, evd: dict | None = None) -> int:
     """Evaluate buffer expression or symbol."""
-    if isinstance(evt, int):
-        return evt
-    if evd is None:
-        return int(evt)
+    if isinstance(evt, int): return evt
+    if evd is None: return int(evt)
     # which should raise if it can't be turned into an int.
-    if evt.is_symbol:
-        return evd[evt]
+    if evt.is_symbol: return evd[evt]
     # assume user correctly adds only ints to evd values
     return int(evt.subs(evd))
     # if this doesn't eval to int then it will also correctly raise.
 
 
-@overload
-def eval_buff_exprs(
-    evts: Sequence[BuffExpr],
-    evd: None = None,
-) -> Sequence[BuffExpr]: ...
-
-
-@overload
-def eval_buff_exprs(evts: Sequence[BuffExpr], evd: dict) -> tuple[int, ...]: ...
-
-
-def eval_buff_exprs(
-    evts: Sequence[BuffExpr],
-    evd: dict | None = None,
-) -> Sequence[BuffExpr] | tuple[int, ...]:
+def eval_buff_exprs(evts: SizeSeq, evd: dict[sym.Symbol,int] | None = None, ) -> Sequence[int]:
     """Evaluate sequence of buffers expression or symbols."""
     if evd is None:
         for evt in evts:
-            if type(evt) is not int:
-                raise TypeError(
+            if not isinstance(evt,int): raise TypeError(
                     f"Element {evt} is not an integer but integers are required for buffer map specification."
                 )
-        return evts
-    out: list[int] = []
-    for e in evts:
-        if isinstance(e, int):
-            out.append(e)
-        elif isinstance(e, sym.Expr) and e.is_symbol:
-            out.append(evd[e])
-        else:
-            out.append(int(e.subs(evd)))
-    return tuple(out)
+        return cast(Sequence[int],evts)
+    return tuple(e if isinstance(e, int) else evd[e] if isinstance(e, sym.Symbol) else int(e.subs(evd)) for e in evts)
 
 
-def cf_plcsym(
-    exprs: Sequence[SizeExpr],
-    cd: sym.Function = CD_FUNC,
-    fd: sym.Function = FD_FUNC,
-) -> list[sym.Expr]:
+def cf_plcsym(exprs: SizeSeq, cd: sym.Function = CD_FUNC, fd: sym.Function = FD_FUNC, ) -> list[sym.Expr]:
+    
     """
     Preprocess expressions:
       ceiling(num/den) -> cd(num, den)
@@ -498,8 +441,7 @@ def cf_plcsym(
     def repl(obj):
         if obj.func is floor or obj.func is ceil:
             num, den = sym.fraction(obj.args[0])
-            if den != 1:
-                return fd(num, den) if obj.func is floor else cd(num, den)  # type: ignore[not-callable]
+            if den != 1: return fd(num, den) if obj.func is floor else cd(num, den)  # type: ignore[not-callable]
         return obj
 
     return [sym.sympify(e).replace(lambda obj: obj.func is floor or obj.func is ceil, repl) for e in exprs]
@@ -514,38 +456,35 @@ def numb_syms(prefix: str = "t", start: int = 0):
         start += 1
 
 
-def is_eqn(expr: sym.Expr | Sequence[SizeExpr] | int | object | None) -> bool:
+def is_eqn(expr: sym.Expr | SizeSeq | int | object | None) -> bool:
     """Return True when ``expr`` is a non-atomic sympy expression."""
     return isinstance(expr, sym.Expr) and not expr.is_Atom  # or is_symbol but atom probably more correct.
 
 
 def _pxpr(excs, exprs) -> None:
-    if is_eqn(exprs):
-        excs.append(exprs)
+    if is_eqn(exprs): excs.append(exprs)
     elif isinstance(exprs, (tuple, list)):
         for v in exprs:
-            if is_eqn(v):
-                excs.append(v)
+            if is_eqn(v): excs.append(v)
 
 
 def _arrpxpr(excs, exprss) -> None:
     _pxpr(excs, exprss[0])
     _pxpr(excs, exprss[1])
-    if exprss[1] is not exprss[2]:
-        _pxpr(excs, exprss[2])
+    if exprss[1] is not exprss[2]: _pxpr(excs, exprss[2])
 
 
 def _bxpr(
-    exls: Sequence[SizeExpr],
-    exprs: SizeExpr | Sequence[SizeExpr] | None,
+    exls: SizeSeq,
+    exprs: SizeParam | SizeSeq | None,
     ct: list[int],
-) -> SizeExpr | Sequence[SizeExpr] | None:
+) -> SizeParam | SizeSeq | None:
     if is_eqn(exprs):
         ex = exls[ct[0]]
         ct[0] += 1
         return ex
     elif isinstance(exprs, (tuple, list)):
-        dl: list[SizeExpr] = []
+        dl: list[SizeParam] = []
         for v in exprs:
             if is_eqn(v):
                 dl.append(exls[ct[0]])
@@ -558,19 +497,16 @@ def _bxpr(
 
 
 def _arrbxpr(
-    exls: Sequence[SizeExpr],
-    exprss: tuple[SizeExpr, SizeSeq, SizeSeq],
+    exls: SizeSeq,
+    exprss: tuple[SizeParam, SizeSeq, SizeSeq],
     ct: list[int],
-) -> tuple[SizeExpr, SizeSeq, SizeSeq]:
+) -> tuple[SizeParam, SizeSeq, SizeSeq]:
     first = _bxpr(exls, exprss[0], ct)
     second = _bxpr(exls, exprss[1], ct)
     third = _bxpr(exls, exprss[2], ct) if exprss[1] is not exprss[2] else second
-    if first is None or isinstance(first, Sequence):
-        raise TypeError("Expected a scalar byte expression.")
-    if not isinstance(second, Sequence):
-        raise TypeError("Expected a backing-shape sequence.")
-    if not isinstance(third, Sequence):
-        raise TypeError("Expected a logical-shape sequence.")
+    if first is None or isinstance(first, Sequence): raise TypeError("Expected a scalar byte expression.")
+    if not isinstance(second, Sequence): raise TypeError("Expected a backing-shape sequence.")
+    if not isinstance(third, Sequence): raise TypeError("Expected a logical-shape sequence.")
     # print(ct,ot)
     return (first, tuple(second), tuple(third))
 
@@ -588,22 +524,19 @@ class BButil:
         args,
         kwargs,
         check_alloc: str | None = "buffer",
-        balign: SizeExpr = BufferAlign.PAGE,
+        balign: SizeParam = BufferAlign.PAGE,
         typebytes: Callable | None = None,
         ceilref: str | None = None,
     ) -> str:
         el = not isinstance(balign, int)
-        if isinstance(balign, sym.Symbol):
-            sbalign = balign.name
-        else:
-            sbalign = balign
+        if isinstance(balign, sym.Symbol): sbalign = balign.name
+        else: sbalign = balign
         name = bmap.name.lower().replace(" ", "_")
         args_str = ", ".join(args)
         kwargs_str = ", ".join(f"{k}={v}" for k, v in kwargs.items())
         parts = [p for p in (args_str, kwargs_str, f"{check_alloc}=None") if p]
         sig = ", ".join(parts)
-        if el:
-            sig = f"{sig}, {sbalign}"
+        if el: sig = f"{sig}, {sbalign}"
         return (
             f"def {name}({sig}):\n"
             f"    {BButil.add_ceildiv(ceilref)}\n"
@@ -612,29 +545,25 @@ class BButil:
 
     @classmethod
     def add_typeparams(cls, args, kwargs, tbld=None) -> str:
-        if tbld is None:
-            tbld = cls.typeref1
+        if tbld is None: tbld = cls.typeref1
         tb = [tbld(v) for v in args if c_orlen(v, "type_")]
         tb.extend(tbld(v) for v in kwargs.keys() if c_orlen(v, "type_"))
         if len(tb) > 0:
             tb.append("")
             return "\n    ".join(tb)
-        else:
-            return ""
+        else: return ""
 
     ceilref1 = "cd_ = lambda x, dv: (x + dv - 1)//dv"
 
     @classmethod
     def add_ceildiv(cls, clrf: str | None = None) -> str:
-        if clrf is None:
-            return cls.ceilref1
+        if clrf is None: return cls.ceilref1
         return clrf
 
     @classmethod
     def add_balloc(
-        cls, alloc_eqn, check_alloc: str = "buffer", alignf: str = "aligned_buffer", balign: SizeExpr = BufferAlign.PAGE
-    ) -> str:
-        return f"""if {check_alloc} is None:
+        cls, alloc_eqn, check_alloc: str = "buffer", alignf: str = "aligned_buffer", balign: SizeParam = BufferAlign.PAGE
+    ) -> str: return f"""if {check_alloc} is None:
         {check_alloc} = {alignf}({gen_str(alloc_eqn)}, {balign})"""
 
 
@@ -656,14 +585,10 @@ def ls_layers(layers) -> list[str]:
 def lyr_str_key(lyr: str) -> int:
     # later on change this to an expression "does it contain function" instead of expensive string call.
     s = lyr
-    if "cd" in s:
-        r = 3
-    elif "fd" in s:
-        r = 2
-    elif "(" in s:
-        r = 1
-    else:
-        r = 0
+    if "cd" in s: r = 3
+    elif "fd" in s: r = 2
+    elif "(" in s: r = 1
+    else: r = 0
     return r
 
 
@@ -711,8 +636,7 @@ def post_process_cse(repls, reduced, symbols, oneassign_del=True, clean_order=Tr
             dg = []
             for n in range(len(tpl)):
                 lyg = tpl[n]
-                if lyg[2] == 2:
-                    continue
+                if lyg[2] == 2: continue
                 lysm = lyg[0]
                 rmi = None
                 ipos = []
@@ -721,8 +645,7 @@ def post_process_cse(repls, reduced, symbols, oneassign_del=True, clean_order=Tr
                 for m in range(len(red_syms)):
                     if lysm in red_syms[m]:
                         ipos.append(m)
-                        if rmi is not None:
-                            break
+                        if rmi is not None: break
                         rmi = n
                 lpos = []
                 # Is there only one in the dependent layers.
@@ -731,8 +654,7 @@ def post_process_cse(repls, reduced, symbols, oneassign_del=True, clean_order=Tr
                     for k in range(len(rly)):
                         if lysm in deps[rly[k][0]]:
                             lpos.append((r, k))
-                            if rmi is not None:
-                                break
+                            if rmi is not None: break
                             rmi = n
                 tl = len(ipos) + len(lpos)
                 if tl == 1:
@@ -752,8 +674,7 @@ def post_process_cse(repls, reduced, symbols, oneassign_del=True, clean_order=Tr
                         rs = deps[rk]
                         deps[rk] = (rs - {lysm}) | deps[lysm]
                         deps.pop(lysm)
-            for v in dg[::-1]:
-                tpl.pop(v)
+            for v in dg[::-1]: tpl.pop(v)
 
     repd = {}
     for lyr in layers:
@@ -765,17 +686,15 @@ def post_process_cse(repls, reduced, symbols, oneassign_del=True, clean_order=Tr
                 sg[0] = sm
             sg.pop()
     if clean_order:
-        for i in range(len(reduced)):
-            reduced[i] = reduced[i].xreplace(repd)
+        for i in range(len(reduced)): reduced[i] = reduced[i].xreplace(repd)
         for lyr in layers:
-            for sg in lyr:
-                sg[1] = sg[1].xreplace(repd)
+            for sg in lyr: sg[1] = sg[1].xreplace(repd)
 
     return layers, reduced
 
 
 def cse_codereduction(
-    exprs: Sequence[SizeExpr],
+    exprs: SizeSeq,
     prefix: str = "t",
     optimizations: str = "basic",
     symbols=numb_syms,
@@ -800,21 +719,19 @@ def _chkfalign(fshape, forder, shape, order, align):
     explicitly provided (``UO`` sentinel). Otherwise, the caller is
     signaling intent to change layout, so the previous alignment is dropped.
     """
-    # change this later so that if it's reversed dimensions in forder != order we keep align
+    # maybe add later so that if it's reversed dimensions in forder != order we keep align
     return align is UO and (shape is None or fshape == shape) and (order is None or forder == order)
 
 
 # other
 def _gao(arr: np.ndarray) -> str:
     """Get array memory order: 'C', 'F', or 'A' (aligned/other)."""
-    if arr.flags["C_CONTIGUOUS"]:
-        return "C"
-    elif arr.flags["F_CONTIGUOUS"]:
-        return "F"
+    if arr.flags["C_CONTIGUOUS"]: return "C"
+    elif arr.flags["F_CONTIGUOUS"]: return "F"
     return "A"
 
 
-def _sao(arr: np.ndarray) -> tuple[int, ...] | tuple[str, tuple[int, ...]]:
+def _sao(arr: np.ndarray) -> tuple[str, tuple[int, ...]]:
     """Infer (order, backing-shape) from strides for aligned buffers.
 
     Returns
@@ -824,8 +741,7 @@ def _sao(arr: np.ndarray) -> tuple[int, ...] | tuple[str, tuple[int, ...]]:
         Backing shape with an expanded leading dimension computed from strides.
     """
     s = list(arr.shape)
-    if arr.ndim < 2:
-        return tuple(s)
+    if arr.ndim < 2: return "C",tuple(s)
     s0, sn = abs(arr.strides[0]), abs(arr.strides[-1])
     i, o, od = (-1, -2, "C") if s0 >= sn else (0, 1, "F")
     s[i] = abs(arr.strides[o]) // abs(arr.strides[i])
