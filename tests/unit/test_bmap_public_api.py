@@ -790,9 +790,13 @@ def test_cse_codereduction_floor_ceiling_variants() -> None:
     """Exercise CSE pipeline with floor/ceiling and fd_ expressions via public API."""
     ai = sym.Symbol("ai", integer=True, positive=True)
     bi = sym.Symbol("bi", integer=True, positive=True)
+    c = sym.Symbol("c", real=True)
+    a = sym.Symbol("a", real=True)
     fd = sym.Function("fd_")
     exprs = (
+        sym.ceiling(c),
         sym.ceiling(ai / sym.Integer(3)),
+        sym.floor(a),
         sym.floor((ai + 1) / sym.Integer(3)),
         sym.floor(ai / (bi + 1)),
         fd(ai + 1, bi + 1),
@@ -801,6 +805,30 @@ def test_cse_codereduction_floor_ceiling_variants() -> None:
     assert layers
     assert reduced
     assert any("cd_" in str(expr) or "fd_" in str(expr) for expr in reduced)
+
+
+def test_cse_codereduction_layer_keys() -> None:
+    """Trigger layer string keys for cd_, fd_, and parenthesized expressions."""
+    a = sym.Symbol("a", real=True)
+    exprs = (
+        sym.ceiling(a / sym.Integer(3)) + 1,
+        sym.ceiling(a / sym.Integer(3)) + 2,
+        sym.floor(a / sym.Integer(3)) + 3,
+        sym.floor(a / sym.Integer(3)) + 4,
+        sym.Function("zz")(a) + 5,
+        sym.Function("zz")(a) + 6,
+    )
+    layers, reduced = cse_codereduction(exprs, prefix="t")
+    assert layers
+    assert reduced
+
+
+def test_array_arspec_noncontiguous_1d() -> None:
+    """Cover array_arspec handling for non-contiguous 1D arrays (order 'A')."""
+    arr = np.arange(10)[::2]
+    assert not arr.flags["C_CONTIGUOUS"]
+    spec = array_arspec(arr, name="strided")
+    assert spec.order == "C"
 
 
 def test_bbutil_gen_str_floor_ceiling_outputs() -> None:
@@ -815,8 +843,34 @@ def test_bbutil_gen_str_floor_ceiling_outputs() -> None:
     floor_alloc = BButil.add_balloc(sym.floor(ai / sym.Integer(3)))
     assert "//" in floor_alloc
 
+    floor_nn = BButil.add_balloc(sym.floor((ai + 1) / (bi + 1)))
+    assert "//" in floor_nn
+    floor_na = BButil.add_balloc(sym.floor((ai + 1) / sym.Integer(3)))
+    assert "//" in floor_na
+    floor_an = BButil.add_balloc(sym.floor(ai / (bi + 1)))
+    assert "//" in floor_an
+    a = sym.Symbol("a", real=True)
+    floor_fallback = BButil.add_balloc(sym.floor(a))
+    assert "floor" in floor_fallback
+
+    c = sym.Symbol("c", real=True)
+    ceil_fallback = BButil.add_balloc(sym.ceiling(c))
+    assert "ceiling" in ceil_fallback
+
     fd_alloc = BButil.add_balloc(fd(ai + 1, bi + 1))
     assert "//" in fd_alloc
+    fd_na = BButil.add_balloc(fd(ai + 1, bi))
+    assert "//" in fd_na
+    fd_an = BButil.add_balloc(fd(ai, bi + 1))
+    assert "//" in fd_an
+    fd_one = BButil.add_balloc(fd(ai, sym.Integer(1)))
+    assert "aligned_buffer" in fd_one
+
+    zz_alloc = BButil.add_balloc(sym.Function("zz")(ai))
+    assert "zz(" in zz_alloc
+
+    max_alloc = BButil.add_balloc(sym.Max(ai, bi))
+    assert "max(" in max_alloc
 
 
 def test_build_buffer_allocator_expr_substitution() -> None:
