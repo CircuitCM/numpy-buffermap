@@ -823,6 +823,24 @@ def test_cse_codereduction_layer_keys() -> None:
     assert reduced
 
 
+def test_cse_codereduction_den_one_paths() -> None:
+    """Ensure cf_plcsym keeps floor/ceiling when denominator is 1."""
+    a = sym.Symbol("a", real=True, integer=False)
+    c = sym.Symbol("c", real=True, integer=False)
+    exprs = (
+        sym.floor(a / sym.Integer(1)),
+        sym.ceiling(c / sym.Integer(1)),
+        sym.floor(a / sym.Integer(1)) + 1,
+        sym.ceiling(c / sym.Integer(1)) + 2,
+    )
+    layers, reduced = cse_codereduction(exprs, prefix="t")
+    assert layers
+    assert reduced
+    flat_layer_exprs = [expr for layer in layers for _, expr in layer]
+    assert any("floor" in str(expr) for expr in (*reduced, *flat_layer_exprs))
+    assert any("ceiling" in str(expr) for expr in (*reduced, *flat_layer_exprs))
+
+
 def test_max_expr_codegen() -> None:
     """Ensure Max expressions survive through codegen paths."""
     m = buffer_expr("m")
