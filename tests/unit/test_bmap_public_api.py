@@ -823,6 +823,18 @@ def test_cse_codereduction_layer_keys() -> None:
     assert reduced
 
 
+def test_max_expr_codegen() -> None:
+    """Ensure Max expressions survive through codegen paths."""
+    m = buffer_expr("m")
+    n = buffer_expr("n")
+    node = ar_spec((sym.Max(m, n),), np.float32, name="mx")
+    root = db_node(node, name="root")
+    build_bmap(root, align=BufferAlign.BYTE)
+    src = build_buffer_allocator(root, fullreduce=True)
+    assert "max" in src
+    assert "return" in src
+
+
 def test_array_arspec_noncontiguous_1d() -> None:
     """Cover array_arspec handling for non-contiguous 1D arrays (order 'A')."""
     arr = np.arange(10)[::2]
