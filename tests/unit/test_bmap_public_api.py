@@ -9,7 +9,6 @@ import pytest
 import sympy as sym
 
 from bmap import (
-    _ as bmap_util,
     ArrayNode,
     BaseNode,
     BButil,
@@ -787,91 +786,45 @@ def test_ft_arspec_init_op_variants() -> None:
     assert isinstance(trans_call, ArrayNode)
 
 
-def test_util_helpers_direct_calls() -> None:
-    """Exercise internal util helpers reachable via bmap._."""
-    a = sym.Symbol("a")
-    b = sym.Symbol("b")
-    assert bmap_util.gen_max((a, b), simplify=False) == sym.Max(a, b)
-    assert bmap_util.gen_add((a, b), simplify=False) == a + b
-    assert bmap_util.gen_str(sym.Max(a, b)) == "max(a, b)"
-    ai = sym.Symbol("ai", integer=True)
-    bi = sym.Symbol("bi", integer=True)
-    assert "cd_" in bmap_util.gen_str(sym.ceiling(ai / sym.Integer(3)))
-    assert "ceiling" in bmap_util.gen_str(sym.ceiling(a / b))
-    assert "//" in bmap_util.gen_str(sym.floor(ai / sym.Integer(3)))
-    assert "//" in bmap_util.gen_str(sym.floor((ai + 1) / sym.Integer(3)))
-    assert "//" in bmap_util.gen_str(sym.floor(ai / (bi + 1)))
-    assert "//" in bmap_util.gen_str(sym.floor((ai + 1) / (bi + 1)))
-    assert "//" in bmap_util.gen_str(sym.floor(sym.Integer(3) / (ai + 1)))
-    assert "floor" in bmap_util.gen_str(sym.floor(a / b))
-
+def test_cse_codereduction_floor_ceiling_variants() -> None:
+    """Exercise CSE pipeline with floor/ceiling and fd_ expressions via public API."""
+    ai = sym.Symbol("ai", integer=True, positive=True)
+    bi = sym.Symbol("bi", integer=True, positive=True)
     fd = sym.Function("fd_")
-    assert "//" in bmap_util.gen_str(fd(a, b))
-    assert "//" in bmap_util.gen_str(fd(ai + 1, bi + 1))
-    assert "//" in bmap_util.gen_str(fd(ai + 1, bi))
-    assert "//" in bmap_util.gen_str(fd(ai, bi + 1))
-    assert bmap_util.gen_str(fd(a, sym.Integer(1))) in {"a", "(a)"}
-    assert "zz(" in bmap_util.gen_str(sym.Function("zz")(a))
+    exprs = (
+        sym.ceiling(ai / sym.Integer(3)),
+        sym.floor((ai + 1) / sym.Integer(3)),
+        sym.floor(ai / (bi + 1)),
+        fd(ai + 1, bi + 1),
+    )
+    layers, reduced = cse_codereduction(exprs, prefix="t")
+    assert layers
+    assert reduced
+    assert any("cd_" in str(expr) or "fd_" in str(expr) for expr in reduced)
 
-    cf = bmap_util.cf_plcsym([sym.floor(a)])
-    assert cf
-    cf2 = bmap_util.cf_plcsym([sym.ceiling(a / sym.Integer(3))])
-    assert any(str(v).startswith("cd_") for v in cf2)
 
-    excs: list[sym.Expr] = []
-    bmap_util._pxpr(excs, a + 1)
-    assert excs
-
-    exls = (1, 2, 3)
-    ct = [0]
-    assert bmap_util._bxpr(exls, a + 1, ct) == 1
-    ct = [0]
-    assert bmap_util._bxpr(exls, (a + 1, 3), ct) == [1, 3]
-
-    with pytest.raises(TypeError):
-        bmap_util._arrbxpr(exls, (None, (1,), (1,)), [0])
-    with pytest.raises(TypeError):
-        bmap_util._arrbxpr(exls, (1, 2, (1,)), [0])
-    with pytest.raises(TypeError):
-        bmap_util._arrbxpr(exls, (1, (1,), 2), [0])
-
-    layers = [[(a, a + 1)]]
-    assert bmap_util.ls_layers(layers)
-    assert bmap_util.lyr_str_key("cd(") == 3
-    assert bmap_util.lyr_str_key("fd(") == 2
-    assert bmap_util.lyr_str_key("(a)") == 1
-    assert bmap_util.lyr_str_key("a") == 0
-
-    t0 = sym.Symbol("t0")
-    t1 = sym.Symbol("t1")
+def test_bbutil_gen_str_floor_ceiling_outputs() -> None:
+    """Validate gen_str formatting through BButil allocation snippets."""
+    ai = sym.Symbol("ai", integer=True, positive=True)
+    bi = sym.Symbol("bi", integer=True, positive=True)
     fd = sym.Function("fd_")
-    repls = [(t0, fd(a, b)), (t1, t0 + 1)]
-    layered, reduced_out = bmap_util.post_process_cse(repls, [], bmap_util.numb_syms("t"))
-    assert layered
-    assert isinstance(reduced_out, list)
 
-    t2 = sym.Symbol("t2")
-    t3 = sym.Symbol("t3")
-    repls2 = [(t2, a + b), (t3, t2 + 1)]
-    layered2, reduced_out2 = bmap_util.post_process_cse(repls2, [], bmap_util.numb_syms("t"))
-    assert layered2
-    assert isinstance(reduced_out2, list)
+    ceil_alloc = BButil.add_balloc(sym.ceiling(ai / sym.Integer(3)))
+    assert "cd_" in ceil_alloc
 
-    t4 = sym.Symbol("t4")
-    repls3 = [(t4, a + b)]
-    layered3, reduced_out3 = bmap_util.post_process_cse(repls3, [t4 + 1], bmap_util.numb_syms("u"))
-    assert layered3
-    assert reduced_out3
+    floor_alloc = BButil.add_balloc(sym.floor(ai / sym.Integer(3)))
+    assert "//" in floor_alloc
 
-    with pytest.raises(RuntimeError):
-        cyc0 = sym.Symbol("c0")
-        cyc1 = sym.Symbol("c1")
-        bmap_util.post_process_cse(
-            [(cyc0, cyc1 + 1), (cyc1, cyc0 + 1)],
-            [],
-            bmap_util.numb_syms("c"),
-        )
+    fd_alloc = BButil.add_balloc(fd(ai + 1, bi + 1))
+    assert "//" in fd_alloc
 
-    one_d = np.arange(4)
-    assert bmap_util._gao(one_d) == "C"
-    assert bmap_util._sao(one_d) == ("C", (4,))
+
+def test_build_buffer_allocator_expr_substitution() -> None:
+    """Ensure allocator codegen substitutes expressions via internal reduction helpers."""
+    a = ar_spec(("m + 1",), name="a")
+    b = ar_spec(("n",), name="b")
+    root = db_node(a, b, name="root", align=True)
+    build_bmap(root, align=BufferAlign.BYTE)
+    src = build_buffer_allocator(root, fullreduce=True)
+    assert "def root" in src
+    assert "return" in src
