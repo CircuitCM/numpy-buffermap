@@ -1,4 +1,3 @@
-from . import _util as _
 from ._nodes import ArrayNode, BaseNode, ContainerNode, ItemNodeT, ValueNode
 from ._procedures import (
     allocate_bmap,
@@ -81,7 +80,6 @@ __all__ = [
     "BButil",
     "BufferAlign",
     "BufferMap",
-    "_",
     "ContainerNode",
     "ItemNodeT",
     "NativeTypes",

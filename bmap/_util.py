@@ -76,7 +76,7 @@ def gen_add(sq: SizeSeq, simplify: bool = True) -> sym.Expr | int:
     return mv
 
 
-def roundup(var: SizeParam, rup: SizeParam | int | None):
+def roundup(var: SizeParam, rup: SizeParam | int | None)-> sym.Expr | int:
     if rup is None or (isinstance(rup, int) and rup < 1): return var
     return sym.ceiling(var / rup) * rup
 
@@ -86,7 +86,8 @@ _GB_EXPR["Symbol"] = lambda s: sym.Symbol(s, integer=True, positive=True)
 
 
 class GenPrinter(StrPrinter):
-    def _print_Max(self, expr): return "max(%s)" % ", ".join(self._print(a) for a in expr.args)  # type: ignore[missing-attribute]
+    def _print_Max(self, expr): 
+        return self._print(i[0]) if len((i:=expr.args))==1 else "max(%s)" % ", ".join(self._print(a) for a in i)  # type: ignore[missing-attribute]
 
     def _print_floor(self, expr):
         x = expr.args[0]
@@ -98,8 +99,8 @@ class GenPrinter(StrPrinter):
             match (na, da):
                 case (True, True): return f"({num_s}//{den_s})"
                 case (False, False): return f"(({num_s})//({den_s}))"
-                case (False, True): return f"({num_s}//({den_s}))"
-                case (True, False): return f"(({num_s})//{den_s})"
+                case (True, False): return f"({num_s}//({den_s}))"
+                case (False, True): return f"(({num_s})//{den_s})"
 
         # if hasattr(super(),'_print_floor'):
         #     return super()._print_floor(expr)
@@ -109,6 +110,7 @@ class GenPrinter(StrPrinter):
         x = expr.args[0]
         num, den = x.as_numer_denom()
         # Turn ceiling(num/den) into ((num + den - 1)//den) when den is integer-like.
+        # as this is long, we will simply use cd_(num,den)
         if den != 1 and den.is_integer:  # and x.is_rational_function()
             num_s = self._print(num)  # type: ignore[missing-attribute]
             den_s = self._print(den)  # type: ignore[missing-attribute]
@@ -132,8 +134,8 @@ class GenPrinter(StrPrinter):
         match (na, da):
             case (True, True): return f"({xs}//{ys})"
             case (False, False): return f"(({xs})//({ys}))"
-            case (False, True): return f"({xs}//({ys}))"
-            case (True, False): return f"(({xs})//{ys})"
+            case (True, False): return f"({xs}//({ys}))"
+            case (False, True): return f"(({xs})//{ys})"
 
     def _print_Function(self, expr):
         # expr.func is the function, expr is the applied function
@@ -257,6 +259,7 @@ def check_eqstr(st: str) -> bool:
 
 
 def c_orlen(tgt, mtch: str):
+    # todo: this is no different from str.startswith, so replaced it with that in the lib.
     """Check if the first part of ``tgt`` matches ``mtch``.
 
     This is only possible if ``len(tgt) >= len(mtch)``, so it avoids a runtime
@@ -348,12 +351,14 @@ def buffer_expr(sy:SizeInput|None, warn:bool = True)->SizeMaybe:
             _SYMCACHE[sn] = syc = sy if is_integer and not is_positive else sym.Symbol(sn, integer=True, positive=True)
         return syc
         # Otherwise return the expression, we shouldn't need to cache pre-made
-        # expressions because that means the user is making the expression
+        # expressions or their symbols because that means the user is making the expression
         # externally first.
         # Also getting the string from an expression is expensive and might not
         # match the original, eg using // instead of floor( ./.).
-        # Without type checking the class it means the error pop up elsewhere
+        # Without type checking the class however, it means the error could pop up elsewhere
         # if it implements an is_symbol field, just note that.
+    elif isinstance(sy, sym.Expr):
+        return sy
     # if safe:
     #      raise ImportError(f'Sympy not installed but a dynamic parameter: {sy} was requested.\nPlease install sympy.')
     # else:
@@ -385,7 +390,9 @@ def buffer_symbols(tgt: SizeInput| Sequence[SizeInput],*rest:SizeInput) -> SizeP
     """Make buffer symbols in the same way as sym.symbols."""
     #merge *rest into tgt if rest exists
     #if rest is not 0 then tgt should never be a sequence and it should fail.
-    if len(rest)!=0:return dt_buff_exprs((cast(SizeInput,tgt),*rest))
+    if len(rest)!=0:
+        assert isinstance(tgt,SizeInput)
+        return dt_buff_exprs((tgt,*rest))
     if isinstance(tgt, str) and " " in tgt: 
         return (*(buffer_expr(st) for st in tgt.split(" ") if not check_eqstr(st) and st != ""),)
     return dt_buff_exprs(tgt)
@@ -408,22 +415,22 @@ def dt_buff_exprs(tgt:SizeInput|Sequence[SizeInput]|None)->SizeMaybe|SizeSeq:
 def eval_buff_expr(evt: Any, evd: dict | None = None) -> int:
     """Evaluate buffer expression or symbol."""
     if isinstance(evt, int): return evt
-    if evd is None: return int(evt)
     # which should raise if it can't be turned into an int.
-    if evt.is_symbol: return evd[evt]
+    if evd is None: return int(evt)
     # assume user correctly adds only ints to evd values
-    return int(evt.subs(evd))
+    if evt.is_symbol: return evd[evt]
     # if this doesn't eval to int then it will also correctly raise.
+    return int(evt.subs(evd))
 
 
 def eval_buff_exprs(evts: SizeSeq, evd: dict[sym.Symbol,int] | None = None, ) -> Sequence[int]:
     """Evaluate sequence of buffers expression or symbols."""
     if evd is None:
         for evt in evts:
-            if not isinstance(evt,int): raise TypeError(
-                    f"Element {evt} is not an integer but integers are required for buffer map specification."
-                )
-        return cast(Sequence[int],evts)
+            if not isinstance(evt,int): 
+                raise TypeError(
+                    f"Element {evt} is not an integer but integers are required for buffer map specification.")
+        return evts #type: ignore[bad-return]
     return tuple(e if isinstance(e, int) else evd[e] if isinstance(e, sym.Symbol) else int(e.subs(evd)) for e in evts)
 
 
@@ -484,18 +491,18 @@ def _bxpr(
         ct[0] += 1
         return ex
     elif isinstance(exprs, (tuple, list)):
-        dl: list[SizeParam] = []
+        dl = []
         for v in exprs:
             if is_eqn(v):
                 dl.append(exls[ct[0]])
                 ct[0] += 1
             else:
-                assert isinstance(v, (sym.Expr, int))
-                dl.append(v)
+                #assert isinstance(v, (sym.Expr, int))
+                dl.append(v) #type: ignore[bad-argument-type] #a plain object type shouldnt be getting mixed in based off the signature.
         return dl
     return exprs
 
-
+#todo: change the if then raise, into asserts.
 def _arrbxpr(
     exls: SizeSeq,
     exprss: tuple[SizeParam, SizeSeq, SizeSeq],
@@ -508,7 +515,7 @@ def _arrbxpr(
     if not isinstance(second, Sequence): raise TypeError("Expected a backing-shape sequence.")
     if not isinstance(third, Sequence): raise TypeError("Expected a logical-shape sequence.")
     # print(ct,ot)
-    return (first, tuple(second), tuple(third))
+    return (first, second, third)
 
 
 class BButil:
@@ -623,8 +630,9 @@ def post_process_cse(repls, reduced, symbols, oneassign_del=True, clean_order=Tr
 
         pending.difference_update(ready)
         available.update(ready)
-
-    if oneassign_del:
+    
+    oneassign_del=False #seems actually not needed at this point.
+    if oneassign_del: # pragma: no branch
         red_syms = [e.free_symbols for e in reduced]
         # for r in reduced:
         #     print(r)
@@ -657,13 +665,15 @@ def post_process_cse(repls, reduced, symbols, oneassign_del=True, clean_order=Tr
                             if rmi is not None: break
                             rmi = n
                 tl = len(ipos) + len(lpos)
+                #if there are only 1, (one for the assignment, or one for a single reference in t# or arrays.)
                 if tl == 1:
                     dg.append(rmi)
-                    # print('ipos',len(ipos))
+                    # if it's in arrays
                     if len(lpos) == 0:
                         rep = ipos[0]
                         reduced[rep] = reduced[rep].xreplace({lysm: lyg[1]})
                         rs = red_syms[rep]
+                        #replace layer its on
                         red_syms[rep] = (rs - {lysm}) | deps[lysm]
                         deps.pop(lysm)
                     else:
@@ -707,7 +717,7 @@ def cse_codereduction(
     """
     exprs_wrapped = cf_plcsym(exprs)
     repls, reduced = sym.cse(exprs_wrapped, symbols=symbols(prefix), optimizations=optimizations)
-    layered_assigns, reduced = post_process_cse(repls, reduced, symbols(prefix))
+    layered_assigns, reduced = post_process_cse(repls, reduced, symbols(prefix),False)
     return layered_assigns, reduced
 
 

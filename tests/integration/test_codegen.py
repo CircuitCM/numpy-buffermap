@@ -1,8 +1,23 @@
+import pathlib
+
 import numpy as np
 import sympy as sym
 
 import bmap as npb
 from bmap import buffer_symbols
+
+
+def _write_test_output(test_name: str, content, is_py: bool) -> pathlib.Path:
+    temp_root = pathlib.Path("temp")
+    temp_root.mkdir(exist_ok=True)
+    suffix = ".py" if is_py else ".txt"
+    path = temp_root / f"{test_name}{suffix}"
+    if isinstance(content, (list, tuple)):
+        text = "\n".join(str(item) for item in content)
+    else:
+        text = str(content)
+    path.write_text(text, encoding="utf-8")
+    return path
 
 
 def test_codegen_large_symbolic_mem_map() -> None:
@@ -27,6 +42,7 @@ def test_codegen_large_symbolic_mem_map() -> None:
 
     rgs = npb.build_bmap(mem_map, align=ail)
     src = npb.build_buffer_allocator(mem_map, rgs, chkforbuffer=True)
+    _write_test_output("test_codegen_large_symbolic_mem_map", src, is_py=True)
     assert "def algo_mem" in src
     assert "aligned_buffer" in src
 
@@ -44,6 +60,7 @@ def test_codegen_lars1_spec() -> None:
     spec = npb.db_node(at, t1, t2, t3, c, i, ib, name="lars1_memspec", no_merge=True)
 
     rgs = npb.build_bmap(spec, align=il)
-    src = npb.build_buffer_allocator(spec, rgs, {il: npb.BufferAlign.AVX512}, chkforbuffer=True)
+    src = npb.build_buffer_allocator(spec, rgs, {il: npb.BufferAlign.AVX512}, chkforbuffer=True, fullreduce=True)
+    _write_test_output("test_codegen_lars1_spec", src, is_py=True)
     assert "def lars1_memspec" in src
     assert "aligned_buffer" in src

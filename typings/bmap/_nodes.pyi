@@ -6,21 +6,21 @@ from anytree import NodeMixin
 from bmap._util import (
     BufferAlign,
     BufferMap,
-    BuffExprMaybe,
+    SizeMaybe,
     DTypeLike,
     InitOp,
-    ShapeLike,
-    SizeExpr,
+    ShapeInput,
+    SizeParam,
     SizeSeq,
 )
 
-SymDef: TypeAlias = BuffExprMaybe | Sequence[BuffExprMaybe] | tuple[SizeExpr | None, SizeSeq, SizeSeq]
+SymDef: TypeAlias = SizeMaybe | Sequence[SizeMaybe] | tuple[SizeParam | None, SizeSeq, SizeSeq]
 
 class BaseNode(NodeMixin):
     id: int
     label: Optional[str]
     no_merge: bool
-    nbytes: SizeExpr | None
+    nbytes: SizeParam | None
     ofs: Optional[int]
     buffer: np.ndarray | None
     def __init__(self, name: Optional[Union[str, int, float]] = None, no_merge: bool = False) -> None: ...
@@ -38,32 +38,32 @@ class BaseNode(NodeMixin):
 class ValueNode(BaseNode):
     def __init__(self, value: int | str | sym.Expr | None, name: Optional[Union[str, int, float]] = None) -> None: ...
 
-    value: BuffExprMaybe
+    value: SizeMaybe
     @property
     def vtype(self) -> type[sym.Expr | NoneType | sym.Symbol | int]: ...
-    def gen_call(self, valexpr: BuffExprMaybe | None = None, subn: str | None = None) -> tuple[str | None, str | int | None]: ...
-    def sym_def(self) -> BuffExprMaybe: ...
+    def gen_call(self, valexpr: SizeMaybe | None = None, subn: str | None = None) -> tuple[str | None, str | int | None]: ...
+    def sym_def(self) -> SizeMaybe: ...
     @property
     def free_symbols(self) -> set[sym.Basic]: ...
 
 class ArrayNode(BaseNode):
-    shape: Sequence[SizeExpr]
+    shape: SizeSeq
     dtype: np.dtype | sym.Expr
-    bshape: Sequence[SizeExpr]
+    bshape: SizeSeq
     array: Optional[np.ndarray]
     barray: Optional[np.ndarray]
-    align_ldim: SizeExpr | Sequence[SizeExpr] | None
-    itsize: SizeExpr
+    align_ldim: SizeParam | SizeSeq | None
+    itsize: SizeParam
     order: str
     init_op: InitOp | None
     def __init__(
         self,
-        shape: ShapeLike = (0,),
+        shape: ShapeInput = (0,),
         dtype: DTypeLike = np.float64,
         order: str = "C",
         init_op: InitOp | None = None,
         name: Optional[Union[str, int, float]] = None,
-        align_ldim: ShapeLike | None = None,
+        align_ldim: ShapeInput | None = None,
     ) -> None: ...
     def mk_array(self, buffer: Optional[np.ndarray] = None, sym_dic: dict[sym.Symbol, int] | None = None) -> np.ndarray: ...
     @property
@@ -72,25 +72,25 @@ class ArrayNode(BaseNode):
     def array_genc(offstr: str, dtstr: str, dmstr: str, ord: str) -> str: ...
 
     npspec = ...
-    def gen_call(self, bytexpr: SizeExpr | None = None, bshape: SizeSeq | None = None, shape: SizeSeq | None = None, subn: str | None = None) -> tuple[str, str]: ...
-    def sym_def(self) -> tuple[SizeExpr, SizeSeq, SizeSeq]: ...
+    def gen_call(self, bytexpr: SizeParam | None = None, bshape: SizeSeq | None = None, shape: SizeSeq | None = None, subn: str | None = None) -> tuple[str, str]: ...
+    def sym_def(self) -> tuple[SizeParam, SizeSeq, SizeSeq]: ...
     @property
     def free_symbols(self) -> set[sym.Basic]: ...
 
 class ContainerNode(BaseNode):
     rule: int
     align: bool
-    aligned_eqns: list[SizeExpr]
+    aligned_eqns: list[SizeParam]
     def __init__(self, *children: BaseNode, rule: int = BufferMap.DISTINCT, name: Optional[Union[str, int, float]] = None, no_merge: bool = False, align: bool = True) -> None: ...
     def add(self, *kids: BaseNode) -> ContainerNode: ...
     def insert(self, index, *kids): ...
     def order(self, *indices): ...
     def pop(self, *idxs): ...
-    def build_flatmap(self, align: SizeExpr = BufferAlign.AVX512, alignb: SizeExpr = BufferAlign.PAGE, name_join: bool = True, force_merge: bool = False, verbose: bool = False): ...
+    def build_flatmap(self, align: SizeParam = BufferAlign.AVX512, alignb: SizeParam = BufferAlign.PAGE, name_join: bool = True, force_merge: bool = False, verbose: bool = False): ...
     @staticmethod
     def s_def(syq: sym.Expr | int | object | None) -> str: ...
-    def gen_call(self, setexpr: SizeExpr | SizeSeq | None = None) -> tuple[str, None] | tuple[tuple[str, ...], None]: ...
-    def sym_def(self) -> SizeExpr | SizeSeq | None: ...
+    def gen_call(self, setexpr: SizeParam | SizeSeq | None = None) -> tuple[str, None] | tuple[tuple[str, ...], None]: ...
+    def sym_def(self) -> SizeParam | SizeSeq | None: ...
     @property
     def free_symbols(self) -> set[sym.Basic]: ...
 

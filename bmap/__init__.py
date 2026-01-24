@@ -35,8 +35,7 @@ helpers (`flatten_items`, `flat_inits`) return leaves or initialized values in
 preorder.
 """
 
-from . import _util as _  # load it first
-from ._nodes import ArrayNode, BaseNode, ContainerNode, ItemNodeT, ValueNode
+from ._nodes import ArrayNode, BaseNode, ContainerNode, ENode, ItemNode, ValueNode
 from ._procedures import (
     allocate_bmap,
     ar_spec,
@@ -84,9 +83,9 @@ __all__ = [
     "BButil",
     "BufferAlign",
     "BufferMap",
-    "_",
     "ContainerNode",
-    "ItemNodeT",
+    "ItemNode",
+    "ENode",
     "NativeTypes",
     "ValueNode",
     "aligned_buffer",
