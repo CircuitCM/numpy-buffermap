@@ -1,7 +1,8 @@
 import copy
+import keyword
 from collections.abc import Collection
 from functools import partial
-from typing import Any, Callable, List, Sequence, Tuple, TypeGuard, Union, cast
+from typing import Any, Callable, List, Sequence, Tuple, TypeGuard, Union
 
 import numpy as np
 import sympy as sym
@@ -17,10 +18,8 @@ from bmap._util import (
     BufferMap,
     DTypeLike,
     InitOp,
-    InitParam,
     ShapeInput,
     ShapeMaybe,
-    ShapeParam,
     SizeMaybe,
     SizeParam,
     SizeSeq,
@@ -58,18 +57,40 @@ def build_buffer_allocator(
     fullreduce: bool = True,
 ) -> str:
     """
-    Builds the string definition of a function that dynamically allocates the arrays and values of a buffer map.
+    Builds the string definition of a function that dynamically allocates the
+    arrays and values of a buffer map.
 
     :param buffer_map: Original buffer map.
-    :param balign: The initial alignment of the buffer. It must be greater than or equal to the alignment you choose to build the buffer_map with.
+    :param balign: The initial alignment of the buffer. It must be greater than
+        or equal to the alignment you choose to build the buffer_map with.
     """
     # Normalize args to names so user may pass sympy.Symbol or str.
-    args = [*((k.name if isinstance(k, sym.Symbol) else k) for k in args),]
+    args = [
+        *(
+            (k.name if isinstance(k, sym.Symbol) else k)
+            for k in args
+            if k is not None and k != "None" and isinstance(k, (sym.Symbol, str))
+        ),
+    ]
+    # Drop invalid parameter names; caller may accidentally pass non-symbol junk (e.g. build_bmap return helpers).
+    args = [a for a in args if isinstance(a, str) and a.isidentifier() and not keyword.iskeyword(a)]
     # Sort args so dtype params are declared first in generated signature.
-    args.sort(key=lambda x: c_orlen(x, "type_"),)
+    args.sort(
+        key=lambda x: c_orlen(x, "type_"),
+    )
     # Normalize kwargs keys to names; only symbol keys are supported in allocator signature.
-    kwargs ={(k.name if isinstance(k, sym.Symbol) else k): v for k, v in kwargs.items()} if kwargs is not None else {}
-    # for now there is also no dead-parameter/dead-code removal, and no checks for if all used input parameters are referenced in the header
+    kwargs = (
+        {
+            (k.name if isinstance(k, sym.Symbol) else k): v
+            for k, v in kwargs.items()
+            if k is not None and k != "None" and isinstance(k, (sym.Symbol, str))
+        }
+        if kwargs is not None
+        else {}
+    )
+    kwargs = {k: v for k, v in kwargs.items() if isinstance(k, str) and k.isidentifier() and not keyword.iskeyword(k)}
+    # For now there is also no dead-parameter/dead-code removal, and no checks
+    # for if all used input parameters are referenced in the header.
     # If caller wants buffer existence check, include check_alloc logic and seed ct for reduced expr walk.
     if chkforbuffer:
         hd = BButil.build_header(buffer_map, args, kwargs, balign=balign)
@@ -105,7 +126,7 @@ def _full_reduce(
     # Collect all expression placeholders from the tree so CSE can minimize them.
     allq.extend(_cxprs(buffer_map))  # already 'least expressions' form.
     # If the root is DISTINCT, drop the final trailing offset expression (it is a no-op slice).
-    #if buffer_map.rule == BufferMap.DISTINCT: allq.pop()
+    # if buffer_map.rule == BufferMap.DISTINCT: allq.pop()
     lyrs, reduc = cse_codereduction(allq, tempvar)
     strl = ls_layers(lyrs)
     # If chkforbuffer is enabled, inject allocator buffer creation using the reduced root size.
@@ -125,7 +146,8 @@ def _no_reduce(
 ):
     mkls = _bba(buffer_map, subname=subname)
     # For DISTINCT roots, drop the last trailing slice statement (it would be an empty advancement).
-    if buffer_map.rule == BufferMap.DISTINCT: mkls[0].pop()
+    if buffer_map.rule == BufferMap.DISTINCT:
+        mkls[0].pop()
     strl = ()
     # If chkforbuffer is enabled, inject allocator buffer creation using the unreduced root size.
     allc = (BButil.add_balloc(allq[0]),) if chkforbuffer else ()
@@ -135,13 +157,16 @@ def _no_reduce(
     return strl, allc, mdst, estr
 
 
-def _is_shape_tuple(value: tuple[int, ...] | tuple[str, tuple[int, ...]],) -> TypeGuard[tuple[int, ...]]: 
+def _is_shape_tuple(
+    value: tuple[int, ...] | tuple[str, tuple[int, ...]],
+) -> TypeGuard[tuple[int, ...]]:
     return not (value and isinstance(value[0], str))
 
 
 def _cxprs(bn: BaseNode, excs: list[sym.Expr] | None = None) -> list[sym.Expr]:
     wn = excs is None
-    if wn: excs = []
+    if wn:
+        excs = []
     # If node is a DISTINCT container, collect either aligned_eqns or per-child nbytes.
     if isinstance(bn, ContainerNode) and bn.rule == BufferMap.DISTINCT:
         # If align=True, include aligned_eqns (container-specific per-child offsets).
@@ -156,9 +181,12 @@ def _cxprs(bn: BaseNode, excs: list[sym.Expr] | None = None) -> list[sym.Expr]:
                 _pxpr(excs, c.nbytes)
     # Otherwise recurse through children and add leaf expressions as needed.
     else:
-        for c in bn.children: _cxprs(c, excs)
-        if isinstance(bn, ArrayNode): _arrpxpr(excs, bn.sym_def())
-        elif isinstance(bn, ValueNode): _pxpr(excs, bn.sym_def())
+        for c in bn.children:
+            _cxprs(c, excs)
+        if isinstance(bn, ArrayNode):
+            _arrpxpr(excs, bn.sym_def())
+        elif isinstance(bn, ValueNode):
+            _pxpr(excs, bn.sym_def())
 
     return excs
 
@@ -182,15 +210,18 @@ def _cbb2(
         for i, (c, eq) in enumerate(zip(bc, eqs, strict=False)):
             _bb2(c, exls, subname, bnode.name, ct, mkls)
             # Root DISTINCT drops its final trailing offset expression; stop before emitting the final pop.
-            if is_root and i == bcl: break
+            if is_root and i == bcl:
+                break
             # Root DISTINCT may also be missing the last reduced expr; guard ct from running off the reduced list.
-            if is_root and ct[0] >= len(exls): break  # root distinct pops final expr; guard ct
+            if is_root and ct[0] >= len(exls):
+                break  # root distinct pops final expr; guard ct
             ot = _bxpr(exls, eq, ct)
             mkls[0].append(ContainerNode.s_def(ot))
     # Otherwise container is SHARED: recurse only (no per-child buffer slicing).
     else:
         mkls[0].append("")
-        for c in bnode.children: _bb2(c, exls, subname, bnode.name, ct, mkls)
+        for c in bnode.children:
+            _bb2(c, exls, subname, bnode.name, ct, mkls)
 
 
 def _bb2(
@@ -202,29 +233,33 @@ def _bb2(
     mkls: tuple[list[str], list[str | int | float]] | None = None,
 ) -> tuple[list[str], list[str | int | float]]:
     is_root = mkls is None
-    if mkls is None: mkls = ([], [])
-    if ct is None: ct = [0]
+    if mkls is None:
+        mkls = ([], [])
+    if ct is None:
+        ct = [0]
     # If node is a container, delegate to shared distinct handler.
     if isinstance(bnode, ContainerNode):
         _cbb2(bnode, exls, subname, sn, ct, mkls, is_root)
     # If node is an array, substitute reduced expressions into (nbytes, bshape, shape) and emit its gen_call.
     elif isinstance(bnode, ArrayNode):
         bytexpr, bshapet, shapet = _arrbxpr(exls, bnode.sym_def(), ct)
-        s0,s1 = bnode.gen_call(
+        s0, s1 = bnode.gen_call(
             bytexpr=bytexpr,
             bshape=bshapet,
             shape=shapet,
             subn=sn if subname else None,
         )
-        mkls[0].append(s0); mkls[1].append(s1)
+        mkls[0].append(s0)
+        mkls[1].append(s1)
     # Otherwise treat as a ValueNode-like leaf and let its gen_call decide assignment vs inline return.
     else:
-        s0,s1 = bnode.gen_call(
+        s0, s1 = bnode.gen_call(
             subn=sn if subname else None,
         )
         # If ValueNode has no name, gen_call returns no assignment line; skip appending None.
-        if s0 is not None: mkls[0].append(s0)
-        mkls[1].append(s1) #type: ignore[bad-argument-type]
+        if s0 is not None:
+            mkls[0].append(s0)
+        mkls[1].append(s1)  # type: ignore[bad-argument-type]
 
     return mkls
 
@@ -235,7 +270,8 @@ def _bba(
     subname: bool = False,
     sn: str | None = None,
 ) -> tuple[list[str], list[str | int | float]]:
-    if mkls is None: mkls = ([], [])
+    if mkls is None:
+        mkls = ([], [])
     # If node is a container, emit buffer slicing statements in preorder.
     if isinstance(bnode, ContainerNode):
         mkls[0].append("")
@@ -247,20 +283,23 @@ def _bba(
                 _bba(c, mkls, subname, bnode.name)
                 mkls[0].append(ContainerNode.s_def(eq))
         # SHARED containers recurse only (no slicing).
-        else: 
-            for c in bnode.children: _bba(c, mkls, subname, bnode.name)
+        else:
+            for c in bnode.children:
+                _bba(c, mkls, subname, bnode.name)
     # If node is an ArrayNode, emit its allocation/view statement.
-    elif isinstance(bnode, ArrayNode): 
-        s0,s1 = bnode.gen_call(subn=sn if subname else None)
-        mkls[0].append(s0);mkls[1].append(s1)
+    elif isinstance(bnode, ArrayNode):
+        s0, s1 = bnode.gen_call(subn=sn if subname else None)
+        mkls[0].append(s0)
+        mkls[1].append(s1)
     # Otherwise treat as ValueNode and emit its assignment/inline return.
     else:
         assert isinstance(bnode, ValueNode)
-        s0,s1 = bnode.gen_call(subn=sn if subname else None)
+        s0, s1 = bnode.gen_call(subn=sn if subname else None)
         # If ValueNode has no name, gen_call returns no assignment line; skip appending None.
-        if s0 is not None: mkls[0].append(s0)
-        mkls[1].append(s1) #type: ignore[bad-argument-type]
-    
+        if s0 is not None:
+            mkls[0].append(s0)
+        mkls[1].append(s1)  # type: ignore[bad-argument-type]
+
     return mkls
 
 
@@ -289,8 +328,9 @@ def build_bmap(
     reduce_bmap(bmap, name_join=name_join, force_merge=force_merge)
     symbols: set[sym.Basic] = set()
     _compute_nbytes(bmap, align=align, _symbols=symbols)
-    if verbose: check_bmap(bmap)
-    return symbols #type: ignore[bad-return]
+    if verbose:
+        check_bmap(bmap)
+    return symbols  # type: ignore[bad-return]
 
 
 # ---------------------------------------------------------------------------
@@ -303,9 +343,11 @@ def _merge_child_into_parent(parent: ContainerNode, child: ContainerNode, *, nam
     When ``name_join`` is true and both have labels, grand-children labels are
     prefixed with the parent's label to preserve context and reduce collisions.
     """
-    if name_join and parent.label and child.label: 
-        for grand in child.children: grand.label = f"{parent.label}_{grand.label or ''}" if grand.label else parent.label
-    for g in list(child.children): g.parent = parent
+    if name_join and parent.label and child.label:
+        for grand in child.children:
+            grand.label = f"{parent.label}_{grand.label or ''}" if grand.label else parent.label
+    for g in list(child.children):
+        g.parent = parent
     child.parent = None
 
 
@@ -318,16 +360,18 @@ def reduce_bmap(bmap: ContainerNode, *, name_join: bool = True, force_merge: boo
     # Walk the tree in preorder and merge container children into parents when compatible.
     for node in list(PreOrderIter(bmap)):
         # Only ContainerNodes participate in merge rules.
-        if not isinstance(node, ContainerNode): continue
+        if not isinstance(node, ContainerNode):
+            continue
         # Consider each child for possible merge into this container.
-        for ch in list(node.children): 
+        for ch in list(node.children):
             # Merge only when rules/align match, and no_merge doesn't block unless force_merge is set.
             if (
                 isinstance(ch, ContainerNode)
                 and node.rule == ch.rule
                 and node.align == ch.align
                 and (force_merge or (not node.no_merge and not ch.no_merge))
-            ): _merge_child_into_parent(node, ch, name_join=name_join)
+            ):
+                _merge_child_into_parent(node, ch, name_join=name_join)
     return bmap
 
 
@@ -348,7 +392,8 @@ def _compute_nbytes(
       DISTINCT containers disables per-child rounding.
     """
     # If caller didn't supply symbol accumulator, create one.
-    if _symbols is None: _symbols = set()
+    if _symbols is None:
+        _symbols = set()
     align_expr = buffer_expr(align)
     # If leaf (ValueNode/ArrayNode), record its symbols and return its nbytes directly.
     if isinstance(node, ItemNode):
@@ -379,10 +424,11 @@ def _compute_nbytes(
         node.nbytes = gen_add(ng, simplify) if ng else 0
     # Otherwise DISTINCT + align=False: sum then round once at container level.
     else:
-        # if not align then nbytes will be rounded to match whole container alignment, but not children alignment. Which means that arraynodes that must be aligned contiguously can be forced to, if they represent the memory of another array exactly.
-        # Which could be useful maybe when you have a shared node, one array, then a distinct sibling node where all
-        # however if another container is a child and it's not at the beginning, this could mess up alignment for all nodes it contains.
-        # so distinct nodes should have alignment by default unless there is a special case for all arrays.
+        # If not align, nbytes is rounded at the container level, not per-child.
+        # This can be useful when arrays must be aligned contiguously to match
+        # an external layout exactly.
+        # However, if another container is a non-leading child, this may break
+        # alignment for nodes it contains, so DISTINCT should default to align.
         sizes = (*(_n_(ch, align, simplify, _symbols) for ch in node.children),)
         raw = gen_add(sizes, simplify) if sizes else 0
         node.nbytes = roundup(raw, align_expr)
@@ -402,18 +448,22 @@ def arrays_map(
 ) -> None:
     """Inits arrays based off of the buffer map. Arrays are placed within their array node.
     And container nodes receive the buffer subindex range they represent.
-    :param balign: The initial alignment of the buffer. It must be greater than or equal to the alignment you choose to build the buffer_map with.
+    :param balign: The initial alignment of the buffer. It must be greater than
+        or equal to the alignment you choose to build the buffer_map with.
     """
     # make sure sym_dic is using symbols, so for user it's ok to specify them with string keys
-    if sym_dic is None: sym_dic = {}
+    if sym_dic is None:
+        sym_dic = {}
     sym_map: dict[sym.Symbol, int] = {}
     for k, v in sym_dic.items():
-        if isinstance(k, sym.Symbol): sym_map[k] = v
+        if isinstance(k, sym.Symbol):
+            sym_map[k] = v
         else:
             sym_key = buffer_expr(k)
             sym_map[sym_key] = v
     # make a buffer if none was provided
-    if _buffer is None: _buffer = aligned_buffer(eval_buff_expr(buffer_map.nbytes, sym_dic), balign)
+    if _buffer is None:
+        _buffer = aligned_buffer(eval_buff_expr(buffer_map.nbytes, sym_dic), balign)
     _generate_nodearrays(buffer_map, _buffer, _base, sym_map)
 
 
@@ -434,12 +484,15 @@ def _generate_nodearrays(
     base: int = 0,
     sym_dic: dict[sym.Symbol, int] | None = None,
 ) -> None:
-    if sym_dic is None: sym_dic = {}
+    if sym_dic is None:
+        sym_dic = {}
     node.ofs = base
-    if isinstance(node, ArrayNode): node.mk_array(buffer, sym_dic)
+    if isinstance(node, ArrayNode):
+        node.mk_array(buffer, sym_dic)
     elif isinstance(node, ContainerNode):
-        if node.rule == BufferMap.SHARED: 
-            for ch in node.children: _generate_nodearrays(ch, buffer, base, sym_dic)
+        if node.rule == BufferMap.SHARED:
+            for ch in node.children:
+                _generate_nodearrays(ch, buffer, base, sym_dic)
         elif node.align:
             for ch, eqn in zip(node.children, node.aligned_eqns, strict=False):
                 _generate_nodearrays(ch, buffer, base, sym_dic)
@@ -453,8 +506,9 @@ def _generate_nodearrays(
 def check_bmap(bmap: ContainerNode) -> None:
     """Print duplicate labels (diagnostic)."""
     seen: dict[str, List[BaseNode]] = {}
-    for n in PreOrderIter(bmap): 
-        if n.label: seen.setdefault(n.label, []).append(n)
+    for n in PreOrderIter(bmap):
+        if n.label:
+            seen.setdefault(n.label, []).append(n)
     dup = {k: v for k, v in seen.items() if len(v) > 1}
     if dup:
         print("Duplicate labels:")
@@ -466,17 +520,21 @@ def check_bmap(bmap: ContainerNode) -> None:
 def _walk_index(node: BaseNode, idx: Sequence[int]) -> BaseNode:
     """Follow a child-index path from ``node`` and return the target node."""
     cur = node
-    for i in idx: cur = cur.children[i]  # type: ignore
+    for i in idx:
+        cur = cur.children[i]  # type: ignore
     return cur
 
 
 def bmap_get(bid: Union[Sequence[int], str, BaseNode], bmap: ContainerNode) -> BaseNode:
     """Resolve a node reference by path, label, or pass-through instance."""
-    if isinstance(bid, BaseNode): return bid
-    if isinstance(bid, (list, tuple)): return _walk_index(bmap, bid)
+    if isinstance(bid, BaseNode):
+        return bid
+    if isinstance(bid, (list, tuple)):
+        return _walk_index(bmap, bid)
     if isinstance(bid, str):
-        for n in PreOrderIter(bmap): 
-            if n.label == bid: return n
+        for n in PreOrderIter(bmap):
+            if n.label == bid:
+                return n
         raise KeyError(bid)
     raise TypeError("bid must be path/label/node")
 
@@ -548,11 +606,11 @@ def ar_spec(
     as a specification for array creation, allowing for detailed control over
     the array's properties and initialization.
 
-    :param shape: Defines the desired shape of the array. Can be a tuple/sequence of 
+    :param shape: Defines the desired shape of the array. Can be a tuple/sequence of
         strings, ints, or sympy positive integer expressions representing the dimensions.
     :param dtype: Specifies the data type of the array elements, providing
         options to use NumPy data types, generic types, or symbolic
-        expressions. 
+        expressions.
     :param order: Determines the memory layout order of the array, either
         'C' for row-major or 'F' for column-major.
     :param init_op: An operation to initialize the array. This can be a None, a
@@ -560,7 +618,7 @@ def ar_spec(
     :param name: An optional name for the array, useful for identification
         and reference within larger computations or models. Array names are required in the code generator.
     :param align_ldim: Aligns the leading dimension to a specified shape,
-        which can aid in memory optimization and performance tuning. The leading 
+        which can aid in memory optimization and performance tuning. The leading
         dimension corresponds to the memory layout and not the array order. So
         the last dimension of a 'C' ordered array is leading, the first dimension of
         an 'F' ordered array is leading.
@@ -575,14 +633,13 @@ def f_arspec_i(
     shape: ShapeInput | None = None,
     dtype: DTypeLike | None = None,
     order: str | None = None,
-    init_op: InitOp|UseOther = UO,
+    init_op: InitOp | UseOther = UO,
     name: str | None = None,
-    align_ldim: ShapeMaybe|UseOther = UO,
-
+    align_ldim: ShapeMaybe | UseOther = UO,
 ) -> Callable[..., ArrayNode]:
     """
     Create a partial function for array specification with the given parameters.
-    
+
     This is no different from wrapping ``f_arspec`` with different defaults, could be useful
     for complex dynamic patterns, for this reason refer to ``f_arspec`` directly for
     documentation.
@@ -611,48 +668,54 @@ def f_arspec(
     shape: ShapeInput | None = None,
     dtype: DTypeLike | None = None,
     order: str | None = None,
-    init_op: InitOp|UseOther = UO,
+    init_op: InitOp | UseOther = UO,
     name: str | None = None,
-    align_ldim: ShapeMaybe|UseOther = UO,
+    align_ldim: ShapeMaybe | UseOther = UO,
 ) -> ArrayNode:
     """Clone an :class:`ArrayNode` spec, overriding selected fields.
 
-    ``align_ldim`` is inherited only if ``shape`` and ``order`` are unchanged and 
-    ``align_ldim`` wasn't explicitly provided (see ``_chkfalign``). Passing 
+    ``align_ldim`` is inherited only if ``shape`` and ``order`` are unchanged and
+    ``align_ldim`` wasn't explicitly provided (see ``_chkfalign``). Passing
     ``init_op=None`` explicitly disables the original initializer.
 
     :param arspec: The ArrayNode to be cloned.
     :param shape: Optional specification for the shape to override.
     :param dtype: Optional specification for the data type to override.
     :param order: Optional specification for the memory layout order to override.
-    :param init_op: Specifies the initialization operation; passing None explicitly 
+    :param init_op: Specifies the initialization operation; passing None explicitly
         disables the initializer. UO make it use the initializer from ``arspec``, be it None, an array or callable.
     :param name: Optional new name for the cloned ArrayNode.
-    :param align_ldim: Optional parameter to override alignment, otherwise it is  
+    :param align_ldim: Optional parameter to override alignment, otherwise it is
         checked and inherited.
-    :return: The cloned ArrayNode with specified fields overridden based on 
+    :return: The cloned ArrayNode with specified fields overridden based on
         provided parameters.
     :rtype: ArrayNode
     """
-    
+
     rs = arspec
-    if not isinstance(rs, ArrayNode): raise ValueError("`f_arspec` only takes ArrayNode for `arspec`.")
-    #do we keep the leading dimension alignment
+    if not isinstance(rs, ArrayNode):
+        raise ValueError("`f_arspec` only takes ArrayNode for `arspec`.")
+    # do we keep the leading dimension alignment
     spc_align = _chkfalign(rs.shape, rs.order, shape, order, align_ldim)
-    if isinstance(align_ldim, UseOther): align_ldim_val = None
-    #we will use the new alignment where None overrides it to definitely no alignment, otherwise eg sympy expression,
-    #dimension tuple, or byte ceiling will force new alignment, leaving it as UO uses arspecs alignment only if possible
-    else: align_ldim_val = align_ldim
-    #for non-optional args, simply get if inputs are None.
+    if isinstance(align_ldim, UseOther):
+        align_ldim_val = None
+    # We will use the new alignment where None forces no alignment; otherwise a
+    # sympy expression/dimension tuple/byte ceiling forces new alignment.
+    # Leaving it as UO uses arspec's alignment only if possible.
+    else:
+        align_ldim_val = align_ldim
+    # for non-optional args, simply get if inputs are None.
     sshape = rs.shape if shape is None else shape
     ddtype = rs.dtype if dtype is None else dtype
     oorder = rs.order if order is None else order
-    #None has the same 'nothing callable' meaning as with align_ldim, UO uses other arspecs init_op.
-    if isinstance(init_op, UseOther): iinit_op = rs.init_op
-    else: iinit_op = init_op
+    # None has the same 'nothing callable' meaning as with align_ldim, UO uses other arspecs init_op.
+    if isinstance(init_op, UseOther):
+        iinit_op = rs.init_op
+    else:
+        iinit_op = init_op
     aalign_ldim = rs.bshape if spc_align else align_ldim_val
-    #Name is the only parameter that doesn't fall back to arspec's name, as it wouldn't really make sense to use this 
-    #function if that were the case.
+    # Name is the only parameter that doesn't fall back to arspec's name, as it wouldn't really make sense to use this
+    # function if that were the case.
     nname = name
     return ar_spec(
         sshape,
@@ -669,68 +732,77 @@ def array_arspec(
     shape: ShapeInput | None = None,
     dtype: DTypeLike | None = None,
     order: str | None = None,
-    init_op: InitOp|UseOther = UO,
+    init_op: InitOp | UseOther = UO,
     name: str | None = None,
-    align_ldim: ShapeMaybe|UseOther = UO,
+    align_ldim: ShapeMaybe | UseOther = UO,
 ) -> ArrayNode:
     """
-    Generates an array specification node with specific properties derived from 
-    the provided parameters and the input array. It verifies and adjusts the 
-    order and alignment settings according to the attributes of the input 
+    Generates an array specification node with specific properties derived from
+    the provided parameters and the input array. It verifies and adjusts the
+    order and alignment settings according to the attributes of the input
     array, shape, data type, and other optional operation details.
 
-    :param arr: The input NumPy array from which properties will be extracted 
+    :param arr: The input NumPy array from which properties will be extracted
         and used in generating the array specification node.
-    :param shape: Optional shape parameter used to override or specify a 
-        particular shape for the array specification node. Defaults to None, 
+    :param shape: Optional shape parameter used to override or specify a
+        particular shape for the array specification node. Defaults to None,
         which means it will use the shape of `arr`.
-    :param dtype: Optional data type to define the desired data type for the 
-        array specification node, defaults to None, meaning it will use the 
+    :param dtype: Optional data type to define the desired data type for the
+        array specification node, defaults to None, meaning it will use the
         data type of `arr`.
-    :param order: Optional string to indicate the desired memory layout order 
-        ('C', 'F', 'A', or None) for the array. If None or 'A', it adapts 
+    :param order: Optional string to indicate the desired memory layout order
+        ('C', 'F', 'A', or None) for the array. If None or 'A', it adapts
         based on the input array.
-    :param init_op: Operation to initialize the array; defaults to 
-        `UseOther`, which implies using the original array or given 
+    :param init_op: Operation to initialize the array; defaults to
+        `UseOther`, which implies using the original array or given
         initialization operation.
-    :param name: Optional parameter to specify a name for the array 
+    :param name: Optional parameter to specify a name for the array
         specification (needed for the code generator).
-    :param align_ldim: Indicates whether to align the leading dimensions, 
-        defaults to `UseOther`, which will adjust based on input array 
+    :param align_ldim: Indicates whether to align the leading dimensions,
+        defaults to `UseOther`, which will adjust based on input array
         properties unless specified otherwise. None will make it contiguous.
-    :returns: An array specification node that details the properties like 
-        shape, data type, order, initialization operation, name, and leading 
+    :returns: An array specification node that details the properties like
+        shape, data type, order, initialization operation, name, and leading
         dimension alignment of the input or specified parameters.
     :rtype: ArrayNode
     """
     torder = _gao(arr)
     nr = order == "A" or order is None
-    #If our original array is discontinuous along an axis.
+    # If our original array is discontinuous along an axis.
     if torder == "A":
-        #assume it's either the front dimension (if C), or back dimension (if F)
-        #use the *axis ordered* strides to figure out the actual backing array format.
+        # assume it's either the front dimension (if C), or back dimension (if F)
+        # use the *axis ordered* strides to figure out the actual backing array format.
         torder, bshape = _sao(arr)
-        #No support yet for multiple discontinuous dimensions.
+        # No support yet for multiple discontinuous dimensions.
         # If caller forces incompatible order, drop inferred alignment.
-        if not (nr or order == torder) and align_ldim is UO: align_ldim = None
-    #Otherwise it's not discontinuous so the leading dimension doesn't have alignment from the array (but we can still request it)
+        if not (nr or order == torder) and align_ldim is UO:
+            align_ldim = None
+    # Otherwise it's not discontinuous so the leading dimension doesn't have
+    # alignment from the array (but we can still request it).
     # Otherwise, base array is contiguous so it doesn't carry alignment info by default.
     # If caller didn't request alignment explicitly, default to None for contiguous arrays.
-    elif align_ldim is UO: align_ldim = None
-    #A is not a real alignment type we could also use None, but its a little more readable.
-    #If we didn't specify an order that is F or C
+    elif align_ldim is UO:
+        align_ldim = None
+    # A is not a real alignment type we could also use None, but its a little more readable.
+    # If we didn't specify an order that is F or C
     # If order is not explicitly C/F, inherit it from the input array.
     # If caller didn't specify explicit C/F order, resolve 'A'/None to the array's order.
-    if nr:order = torder
-    #if (have a specified shape) and not (shapes are equal), but align_ldim is UO, we will just assume we shouldn't use original alignment.
+    if nr:
+        order = torder
+    # if (have a specified shape) and not (shapes are equal), but align_ldim is
+    # UO, we will just assume we shouldn't use original alignment.
     # If caller forces a different logical shape, don't inherit alignment unless explicitly requested.
     # If requested shape differs from arr.shape, drop inherited align_ldim unless explicitly set.
-    if not (shape is None or shape == arr.shape) and align_ldim is UO: align_ldim = None
-    #but if no specified shape (will use original) or shapes are equal, assume we can use base dimensions of array for new base.
+    if not (shape is None or shape == arr.shape) and align_ldim is UO:
+        align_ldim = None
+    # but if no specified shape (will use original) or shapes are equal, assume
+    # we can use base dimensions of array for new base.
     # If alignment remains undecided, inherit base backing shape from discontinuous array path.
     # If still undecided, inherit the backing shape (only set in discontinuous path).
-    if align_ldim is UO: align_ldim = bshape #type: ignore[unbound-name]
-    #we don't have to worry about bshape not existing, because we know if bshape is NA then arr is C or F contiguous and align_ldim=None from prev set.
+    if align_ldim is UO:
+        align_ldim = bshape  # type: ignore[unbound-name]
+    # we don't have to worry about bshape not existing, because we know if bshape
+    # is NA then arr is C or F contiguous and align_ldim=None from prev set.
     return _aarspec(arr, shape, dtype, order, init_op, name, align_ldim)
 
 
@@ -759,9 +831,9 @@ def ft_arspec(
     shape: ShapeInput | None = None,
     dtype: DTypeLike | None = None,
     order: str | None = None,
-    init_op: InitOp|UseOther = UO,
+    init_op: InitOp | UseOther = UO,
     name: str | None = None,
-    align_ldim: ShapeInput|UseOther = UO,
+    align_ldim: ShapeInput | UseOther = UO,
 ) -> ArrayNode:
     """Return a **transposed** Array spec without changing memory layout.
 
@@ -770,12 +842,30 @@ def ft_arspec(
     """
     rs = arspec
     rop = rs.init_op
-    if isinstance(rop, np.ndarray): top = rop.T
-    elif callable(rop): top = lambda ar: rop(ar.T)  # noqa: E731
-    else: top = rop
-    
-    tspec = ar_spec(rs.shape[::-1], rs.dtype, "C" if rs.order != "C" else "F", top, rs.name, rs.bshape[::-1],)
-    return f_arspec(tspec, shape=shape, dtype=dtype, order=order, init_op=init_op, name=name, align_ldim=align_ldim,)
+    if isinstance(rop, np.ndarray):
+        top = rop.T
+    elif callable(rop):
+        top = lambda ar: rop(ar.T)  # noqa: E731
+    else:
+        top = rop
+
+    tspec = ar_spec(
+        rs.shape[::-1],
+        rs.dtype,
+        "C" if rs.order != "C" else "F",
+        top,
+        rs.name,
+        rs.bshape[::-1],
+    )
+    return f_arspec(
+        tspec,
+        shape=shape,
+        dtype=dtype,
+        order=order,
+        init_op=init_op,
+        name=name,
+        align_ldim=align_ldim,
+    )
 
 
 # ContainerNode
@@ -796,12 +886,15 @@ def db_node(*args, name=None, no_merge=False, align=True) -> ContainerNode:
     """
     return ContainerNode(*args, rule=BufferMap.DISTINCT, name=name, no_merge=no_merge, align=align)
 
+
 # 7) DOT export
 def _dtype_label(dtype: np.dtype | sym.Expr | sym.Symbol) -> str:
     # If dtype is concrete, abbreviate it.
-    if isinstance(dtype, np.dtype): return dtype_abbr(dtype)
+    if isinstance(dtype, np.dtype):
+        return dtype_abbr(dtype)
     # If dtype is symbolic expression, stringify via gen_str.
-    if isinstance(dtype, sym.Expr): return gen_str(dtype)
+    if isinstance(dtype, sym.Expr):
+        return gen_str(dtype)
     # Otherwise fall back to str() (e.g. sym.Symbol).
     return str(dtype)
 
@@ -813,37 +906,46 @@ def _dot_node_attr(node: ENode, *, with_offsets: bool) -> str:
     info_parts: List[str] = []
     col = 'color="white"'
     # If node has a label, include it in the displayed DOT label.
-    if node.label: info_parts.append(f"- {node.label} -")
+    if node.label:
+        info_parts.append(f"- {node.label} -")
     # If node is an ArrayNode, include shape/dtype details.
     if isinstance(node, ArrayNode):
         dtype_label = _dtype_label(node.dtype)
         # If align_ldim is enabled, show both logical and backing shapes.
-        if node.align_ldim is not None: info_parts.append(f"{node.shape}, {node.bshape}, {dtype_label}")
+        if node.align_ldim is not None:
+            info_parts.append(f"{node.shape}, {node.bshape}, {dtype_label}")
         # Otherwise, show only logical shape and dtype.
-        else: info_parts.append(f"{node.shape}, {dtype_label}")
+        else:
+            info_parts.append(f"{node.shape}, {dtype_label}")
         col = 'color="lime"'
     # If node is a ValueNode, show a short repr of its value.
     elif isinstance(node, ValueNode):
         vt = repr(node.value)
         qrg = 18
         vt = vt[:qrg]
-        if qrg <= len(vt): vt = vt[:10] + "..."
+        if qrg <= len(vt):
+            vt = vt[:10] + "..."
         info_parts.append(vt)
         col = 'color="pink"'
     # If node is a DISTINCT container, color it orange.
-    elif node.rule == BufferMap.DISTINCT: col = 'color="orange"' #bc it can only be a ContainerNode by this conditional.
+    elif node.rule == BufferMap.DISTINCT:
+        col = 'color="orange"'  # bc it can only be a ContainerNode by this conditional.
     # Otherwise it is a SHARED container, color it cyan.
-    else: col = 'color="cyan"' #it is shared
+    else:
+        col = 'color="cyan"'  # it is shared
     # If with_offsets is enabled and ofs is known, include [ofs, end) range.
     if with_offsets and node.ofs is not None:
         # If nbytes is symbolic, display the expression; otherwise compute concrete end.
-        if isinstance(node.nbytes, sym.Expr): end = f"{node.ofs}+{gen_str(node.nbytes)}"
-        else: end = node.ofs + node.nbytes
+        if isinstance(node.nbytes, sym.Expr):
+            end = f"{node.ofs}+{gen_str(node.nbytes)}"
+        else:
+            end = node.ofs + node.nbytes
         info_parts.append(f"[{node.ofs}, {end})")
     # If node has an nbytes field, show size summary.
-    if hasattr(node.nbytes,'nbytes'):
+    if hasattr(node.nbytes, "nbytes"):
         # If symbolic, show raw bytes expression string.
-        if isinstance(node.nbytes, sym.Expr): info_parts.append(f"{gen_str(node.nbytes)} B")
+        if isinstance(node.nbytes, sym.Expr):
+            info_parts.append(f"{gen_str(node.nbytes)} B")
         # Otherwise, show KB summary for human readability.
         else:
             info_parts.append(f"{node.nbytes / 1024:.2f} KB")  # maybe change to
@@ -863,7 +965,8 @@ def bmap_todot(bmap: BaseNode, *, with_offsets: bool = True) -> str:
         bmap,
         nodenamefunc=lambda n: f"n_{n.id}",
         nodeattrfunc=lambda n: _dot_node_attr(n, with_offsets=with_offsets),
-    ): lines.append(line)
+    ):
+        lines.append(line)
     return "\n".join(lines)
 
 
@@ -871,7 +974,8 @@ def bmap_todot(bmap: BaseNode, *, with_offsets: bool = True) -> str:
 def _clean_field(node: dict[str, Any], key: str) -> None:
     val = node.get(key)
     # If the field is a quoted DOT string, strip embedded quotes for display.
-    if isinstance(val, str) and val.startswith('"') and val.endswith('"'): node[key] = val.strip('"')
+    if isinstance(val, str) and val.startswith('"') and val.endswith('"'):
+        node[key] = val.strip('"')
 
 
 def _clean_nodes(nodes: list[dict[str, Any]]) -> None:
@@ -892,42 +996,94 @@ def _bmap_pyvis(src: Union[str, BaseNode], *, with_offsets: bool = False) -> Net
         import networkx as nx  # type: ignore[missing-import]
         import pydot  # type: ignore[missing-import]
         from pyvis.network import Network  # type: ignore[untyped-import]
-    except ImportError as e: raise ImportError("pyvis, networkx, pydot required for bmap_pyvis()") from e
+    except ImportError as e:
+        raise ImportError("pyvis, networkx, pydot required for bmap_pyvis()") from e
     # If src is already DOT, use it as-is.
-    if isinstance(src, str): dot_data = src
+    if isinstance(src, str):
+        dot_data = src
     # If src is a buffer-map node, serialize it to DOT first.
-    elif isinstance(src, BaseNode): dot_data = bmap_todot(src, with_offsets=with_offsets)
+    elif isinstance(src, BaseNode):
+        dot_data = bmap_todot(src, with_offsets=with_offsets)
     # Otherwise, refuse unsupported inputs.
-    else: raise TypeError("src must be DOT str or ContainerNode")
+    else:
+        raise TypeError("src must be DOT str or ContainerNode")
     graphs = pydot.graph_from_dot_data(dot_data)
     # If pydot couldn't parse, fail fast with a clear error.
-    if not graphs: raise ValueError("Failed to parse DOT data")
+    if not graphs:
+        raise ValueError("Failed to parse DOT data")
     pgraph = graphs[0]
     g_nx: Any = nx.drawing.nx_pydot.from_pydot(pgraph)
     net = Network(directed=True)
     net.from_nx(g_nx)
     # Strip embedded quotes from labels and colors
     _clean_nodes(net.nodes)
-    net.set_options("""{
-  "layout": {"hierarchical":{"enabled":true,"direction":"UD","sortMethod":"hubsize","blockShifting":true,"edgeMinimization":true}},
-  "physics":{"enabled":true}
-}""")
+    net.set_options(
+        """{
+  "layout": {
+    "hierarchical": {
+      "enabled": true,
+      "direction": "UD",
+      "sortMethod": "hubsize",
+      "blockShifting": true,
+      "edgeMinimization": true
+    }
+  },
+  "physics": {"enabled": true}
+}"""
+    )
     return net
 
 
 BMAP_ROPTS2 = """{
-      "layout": {"hierarchical":{"enabled":false,"direction":"UD","sortMethod":"hubsize","blockShifting":true,"edgeMinimization":true}},
-      "physics":{"enabled":true, "wind": { "x": 0.0, "y": 0 },"repulsion":{"nodeDistance": 200,"springLength": 200},"centralGravity":0.1}
+      "layout": {
+        "hierarchical": {
+          "enabled": false,
+          "direction": "UD",
+          "sortMethod": "hubsize",
+          "blockShifting": true,
+          "edgeMinimization": true
+        }
+      },
+      "physics": {
+        "enabled": true,
+        "wind": { "x": 0.0, "y": 0 },
+        "repulsion": { "nodeDistance": 200, "springLength": 200 },
+        "centralGravity": 0.1
+      }
     }"""
 
 BMAP_ROPTS = """{
-      "layout": {"hierarchical":{"enabled":true,"direction":"UD","sortMethod":"hubsize","blockShifting":true,"edgeMinimization":true}},
-      "physics":{"enabled":true, "wind": { "x": 0.02, "y": 0 },"hierarchicalRepulsion":{"nodeDistance": 55,"avoidOverlap": 1}}
+      "layout": {
+        "hierarchical": {
+          "enabled": true,
+          "direction": "UD",
+          "sortMethod": "hubsize",
+          "blockShifting": true,
+          "edgeMinimization": true
+        }
+      },
+      "physics": {
+        "enabled": true,
+        "wind": { "x": 0.02, "y": 0 },
+        "hierarchicalRepulsion": { "nodeDistance": 55, "avoidOverlap": 1 }
+      }
     }"""
 
 _bopt = """{
-      "layout": {"hierarchical":{"enabled":true,"direction":"UD","sortMethod":"hubsize","blockShifting":true,"edgeMinimization":true}},
-      "physics":{"enabled":true, "wind": { "x": 0.02, "y": 0 },"hierarchicalRepulsion":{"nodeDistance": 67,"avoidOverlap": 1}}
+      "layout": {
+        "hierarchical": {
+          "enabled": true,
+          "direction": "UD",
+          "sortMethod": "hubsize",
+          "blockShifting": true,
+          "edgeMinimization": true
+        }
+      },
+      "physics": {
+        "enabled": true,
+        "wind": { "x": 0.02, "y": 0 },
+        "hierarchicalRepulsion": { "nodeDistance": 67, "avoidOverlap": 1 }
+      }
     }"""
 
 
@@ -953,8 +1109,9 @@ def bmap_pyvis(
     dot_data = src if isinstance(src, str) else bmap_todot(src, with_offsets=with_offsets)
     graphs = pydot.graph_from_dot_data(dot_data)
     # DOT parse must return at least one graph.
-    if not graphs: raise ValueError("Failed to parse DOT data")
-    #print(graphs)
+    if not graphs:
+        raise ValueError("Failed to parse DOT data")
+    # print(graphs)
     pgraph = graphs[0]
     # Convert to NetworkX
     g_nx: Any = nx.drawing.nx_pydot.from_pydot(pgraph)
@@ -965,9 +1122,11 @@ def bmap_pyvis(
     # Pick a root id when graph has nodes; otherwise root_id stays None.
     root_id = nodes[0] if nodes else None
     dummy = 0
-    # Note: For some reason we need a dummy node otherwise the top level node will be out of place try the old _bmap_pyvis to see strange behavior
+    # Note: For some reason we need a dummy node otherwise the top level node
+    # will be out of place; try the old _bmap_pyvis to see strange behavior.
     # Ensure a dummy anchor node exists to stabilize hierarchical layout.
-    if dummy not in g_nx: g_nx.add_node(
+    if dummy not in g_nx:
+        g_nx.add_node(
             dummy,
             label="",
             shape="circle",

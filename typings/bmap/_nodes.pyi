@@ -1,18 +1,8 @@
 import numpy as np
 import sympy as sym
-from types import NoneType
-from typing import Optional, Sequence, TypeAlias, Union
+from typing import Any, Optional, Sequence, TypeAlias, Union
 from anytree import NodeMixin
-from bmap._util import (
-    BufferAlign,
-    BufferMap,
-    SizeMaybe,
-    DTypeLike,
-    InitOp,
-    ShapeInput,
-    SizeParam,
-    SizeSeq,
-)
+from bmap._util import DTypeLike, InitOp, MaybeArray, ShapeInput, SizeMaybe, SizeParam, SizeSeq
 
 SymDef: TypeAlias = SizeMaybe | Sequence[SizeMaybe] | tuple[SizeParam | None, SizeSeq, SizeSeq]
 
@@ -20,7 +10,6 @@ class BaseNode(NodeMixin):
     id: int
     label: Optional[str]
     no_merge: bool
-    nbytes: SizeParam | None
     ofs: Optional[int]
     buffer: np.ndarray | None
     def __init__(self, name: Optional[Union[str, int, float]] = None, no_merge: bool = False) -> None: ...
@@ -36,34 +25,30 @@ class BaseNode(NodeMixin):
     def free_symbols(self) -> set[sym.Basic]: ...
 
 class ValueNode(BaseNode):
+    nbytes: int = ...
     def __init__(self, value: int | str | sym.Expr | None, name: Optional[Union[str, int, float]] = None) -> None: ...
 
-    value: SizeMaybe
+    value: Any
     @property
-    def vtype(self) -> type[sym.Expr | NoneType | sym.Symbol | int]: ...
-    def gen_call(self, valexpr: SizeMaybe | None = None, subn: str | None = None) -> tuple[str | None, str | int | None]: ...
+    def vtype(self) -> type[Any]: ...
+    def gen_call(self, valexpr: Any = None, subn: str | None = None) -> tuple[str | None, str | int | None]: ...
     def sym_def(self) -> SizeMaybe: ...
     @property
     def free_symbols(self) -> set[sym.Basic]: ...
 
 class ArrayNode(BaseNode):
     shape: SizeSeq
-    dtype: np.dtype | sym.Expr
+    dtype: np.dtype | sym.Symbol
     bshape: SizeSeq
-    array: Optional[np.ndarray]
+    array: MaybeArray
     barray: Optional[np.ndarray]
     align_ldim: SizeParam | SizeSeq | None
     itsize: SizeParam
     order: str
-    init_op: InitOp | None
+    init_op: InitOp
+    nbytes: SizeParam
     def __init__(
-        self,
-        shape: ShapeInput = (0,),
-        dtype: DTypeLike = np.float64,
-        order: str = "C",
-        init_op: InitOp | None = None,
-        name: Optional[Union[str, int, float]] = None,
-        align_ldim: ShapeInput | None = None,
+        self, shape: ShapeInput = (0,), dtype: DTypeLike = np.float64, order: str = "C", init_op: InitOp = None, name: Optional[Union[str, int, float]] = None, align_ldim: ShapeInput | None = None
     ) -> None: ...
     def mk_array(self, buffer: Optional[np.ndarray] = None, sym_dic: dict[sym.Symbol, int] | None = None) -> np.ndarray: ...
     @property
@@ -81,6 +66,7 @@ class ContainerNode(BaseNode):
     rule: int
     align: bool
     aligned_eqns: list[SizeParam]
+    nbytes: SizeParam
     def __init__(self, *children: BaseNode, rule: int = BufferMap.DISTINCT, name: Optional[Union[str, int, float]] = None, no_merge: bool = False, align: bool = True) -> None: ...
     def add(self, *kids: BaseNode) -> ContainerNode: ...
     def insert(self, index, *kids): ...
@@ -94,4 +80,5 @@ class ContainerNode(BaseNode):
     @property
     def free_symbols(self) -> set[sym.Basic]: ...
 
-ItemNodeT: TypeAlias = ValueNode | ArrayNode
+ItemNode: TypeAlias = ValueNode | ArrayNode
+ENode: TypeAlias = ItemNode | ContainerNode

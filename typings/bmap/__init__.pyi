@@ -1,4 +1,4 @@
-from ._nodes import ArrayNode, BaseNode, ContainerNode, ItemNodeT, ValueNode
+from ._nodes import ArrayNode, BaseNode, ContainerNode, ENode, ItemNode, ValueNode
 from ._procedures import (
     allocate_bmap,
     ar_spec,
@@ -81,7 +81,8 @@ __all__ = [
     "BufferAlign",
     "BufferMap",
     "ContainerNode",
-    "ItemNodeT",
+    "ItemNode",
+    "ENode",
     "NativeTypes",
     "ValueNode",
     "aligned_buffer",
