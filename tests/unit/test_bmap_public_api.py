@@ -48,6 +48,7 @@ from bmap import (
     v_spec,
 )
 
+
 def _write_test_output(test_name: str, content, is_py: bool) -> pathlib.Path:
     temp_root = pathlib.Path("temp")
     temp_root.mkdir(exist_ok=True)
@@ -96,7 +97,7 @@ def test_buffer_expr_and_symbols() -> None:
     """Exercise buffer expression parsing and symbol helpers."""
     sym_a = buffer_expr("a")
     assert isinstance(sym_a, sym.Symbol)
-    assert sym_a.is_integer is True
+    assert sym_a.is_integer is True #need to fix sympy stubs.
     assert sym_a.is_positive is True
 
     expr = buffer_expr("4*a")
@@ -220,15 +221,15 @@ def test_bmap_build_allocation_and_flatten() -> None:
     shared = sb_node(ar_spec((4,), name="s1"), name="shared")
     root = db_node(dist1, dist2, val, shared, name="root")
 
-    build_bmap(root, align=BufferAlign.BYTE)
-    allocate_bmap(root, balign=BufferAlign.BYTE)
+    build_bmap(root, align=BufferAlign.AVX512)
+    allocate_bmap(root, balign=BufferAlign.PAGE)
 
     assert dist1.array is not None
     assert dist1.array.shape == (3,)
     assert dist2.array is not None
     assert val.value == 7
 
-    flat_vals = build_flatmap(root, align=BufferAlign.BYTE)
+    flat_vals = build_flatmap(root, align=BufferAlign.AVX512)
     assert len(flat_vals) >= 3
 
     oneshot = oneshot_args(root)
@@ -285,18 +286,18 @@ def test_container_build_flatmap_and_merge() -> None:
     inner = db_node(ar_spec((2,), name="x"), name="inner")
     outer = db_node(inner, ar_spec((1,), name="y"), name="outer")
 
-    outer.build_flatmap(align=BufferAlign.BYTE, name_join=True)
+    outer.build_flatmap(align=BufferAlign.AVX512, name_join=True)
     assert any("outer_" in (n.name or "") for n in outer.children)
 
     duplicate = db_node(ar_spec((1,), name="dup"), ar_spec((2,), name="dup"), name="root")
-    build_bmap(duplicate, align=BufferAlign.BYTE, verbose=True)
+    build_bmap(duplicate, align=BufferAlign.AVX512, verbose=True)
 
     merged = db_node(db_node(ar_spec((1,), name="a"), name="child"), name="parent")
-    build_bmap(merged, align=BufferAlign.BYTE, name_join=True, force_merge=True)
+    build_bmap(merged, align=BufferAlign.AVX512, name_join=True, force_merge=True)
     assert any((n.name or "").startswith("parent_") for n in merged.children)
 
     nested = db_node(db_node(ar_spec((1,), name="x"), name="inner"), name="outer")
-    build_bmap(nested, align=BufferAlign.BYTE, name_join=True, force_merge=True)
+    build_bmap(nested, align=BufferAlign.AVX512, name_join=True, force_merge=True)
     assert any((n.name or "").startswith("outer_") for n in nested.children)
 
 
@@ -304,11 +305,11 @@ def test_build_bmap_verbose_and_force_merge() -> None:
     """Cover verbose diagnostics and forced merge behavior."""
     inner = sb_node(ar_spec((1,), name="dup"), name="inner", no_merge=True)
     outer = sb_node(inner, ar_spec((2,), name="dup"), name="outer", no_merge=True)
-    build_bmap(outer, align=BufferAlign.BYTE, force_merge=True, verbose=True)
+    build_bmap(outer, align=BufferAlign.AVX512, force_merge=True, verbose=True)
     assert all(not isinstance(ch, ContainerNode) for ch in outer.children)
 
     sym_root = sb_node(ar_spec(("m",), name="a"), ar_spec(("n",), name="b"), name="sym")
-    build_bmap(sym_root, align=BufferAlign.BYTE)
+    build_bmap(sym_root, align=BufferAlign.AVX512)
     assert isinstance(sym_root.nbytes, sym.Expr)
 
 
@@ -317,9 +318,9 @@ def test_arrays_map_with_symbols() -> None:
     m = buffer_expr("m")
     arr = ar_spec((m,), name="sym")
     root = db_node(arr, name="root")
-    build_bmap(root, align=BufferAlign.BYTE)
+    build_bmap(root, align=BufferAlign.AVX512)
 
-    arrays_map(root, sym_dic={m: 4}, balign=BufferAlign.BYTE)
+    arrays_map(root, sym_dic={m: 4}, balign=BufferAlign.PAGE)
     assert arr.array is not None
     assert arr.array.shape == (4,)
 
@@ -329,9 +330,9 @@ def test_arrays_map_with_string_keys() -> None:
     m = buffer_expr("m")
     arr = ar_spec((m,), name="a")
     root = db_node(arr, name="root")
-    build_bmap(root, align=BufferAlign.BYTE)
+    build_bmap(root, align=BufferAlign.AVX512)
 
-    arrays_map(root, sym_dic={"m": 3, m: 3}, balign=BufferAlign.BYTE)
+    arrays_map(root, sym_dic={"m": 3, m: 3}, balign=BufferAlign.PAGE)
     assert arr.array is not None
     assert arr.array.shape == (3,)
 
@@ -340,10 +341,10 @@ def test_arrays_map_with_buffer_base() -> None:
     """Cover arrays_map when a buffer and base offset are supplied."""
     arr = ar_spec((2,), np.float32, name="a")
     root = db_node(arr, name="root", align=False)
-    build_bmap(root, align=BufferAlign.BYTE)
+    build_bmap(root, align=BufferAlign.AVX512)
 
-    buffer = aligned_buffer(eval_buff_expr(root.nbytes) + 1, align=BufferAlign.BYTE)
-    arrays_map(root, balign=BufferAlign.BYTE, _buffer=buffer, _base=1)
+    buffer = aligned_buffer(eval_buff_expr(root.nbytes) + 1, align=BufferAlign.AVX512)
+    arrays_map(root, balign=BufferAlign.PAGE, _buffer=buffer, _base=1)
     assert arr.array is not None
     assert arr.ofs == 1
 
@@ -391,26 +392,27 @@ def test_reduce_bmap_no_merge() -> None:
     """Ensure no_merge blocks same-rule container merging."""
     inner = db_node(ar_spec((1,), name="x"), name="inner", no_merge=True)
     outer = db_node(inner, name="outer")
-    build_bmap(outer, align=BufferAlign.BYTE, force_merge=False)
+    build_bmap(outer, align=BufferAlign.AVX512, force_merge=False)
     assert any(isinstance(ch, ContainerNode) for ch in outer.children)
 
 
 def test_build_buffer_allocator_no_reduce() -> None:
     """Cover allocator generation without CSE reduction."""
     root = sb_node(ar_spec((2,), name="a"), name="shared")
-    build_bmap(root, align=BufferAlign.BYTE)
-    alloc_src = build_buffer_allocator(root, fullreduce=False)
+    rgs=build_bmap(root, align=BufferAlign.AVX512)
+    alloc_src = build_buffer_allocator(root,rgs, fullreduce=False)
     _write_test_output("test_build_buffer_allocator_no_reduce", alloc_src, is_py=True)
     assert "return" in alloc_src
 
 
+@pytest.mark.regression()
 def test_build_buffer_allocator_no_check() -> None:
     """Cover allocator generation with chkforbuffer disabled."""
     root = sb_node(ar_spec((2,), name="a"), name="shared")
-    build_bmap(root, align=BufferAlign.BYTE)
-    alloc_src = build_buffer_allocator(root, chkforbuffer=False, fullreduce=False)
+    rgs=build_bmap(root, align=BufferAlign.AVX512)
+    alloc_src = build_buffer_allocator(root,rgs, chkforbuffer=False, fullreduce=False)
     _write_test_output("test_build_buffer_allocator_no_check", alloc_src, is_py=True)
-    assert "def shared" in alloc_src
+    assert "None=None" not in alloc_src #fix later
 
 
 def test_container_free_symbols() -> None:
@@ -418,7 +420,7 @@ def test_container_free_symbols() -> None:
     m = buffer_expr("m")
     node = ar_spec((m,), name="a")
     root = db_node(node, name="root")
-    build_bmap(root, align=BufferAlign.BYTE)
+    build_bmap(root, align=BufferAlign.AVX512)
     assert any(s.name == "m" for s in root.free_symbols)
 
     sym_node = ar_spec(("m + 1",), name="expr")
@@ -435,7 +437,7 @@ def test_container_free_symbols_aligned_eqns() -> None:
     m = buffer_expr("m")
     node = ar_spec((m,), name="a")
     root = db_node(node, name="root", align=True)
-    build_bmap(root, align=BufferAlign.BYTE)
+    build_bmap(root, align=BufferAlign.AVX512)
     assert root.aligned_eqns
     assert any(s.name == "m" for s in root.free_symbols)
 
@@ -471,7 +473,7 @@ def test_container_free_symbols_edge_cases() -> None:
 def test_container_gen_call_scalar_expr() -> None:
     """Cover gen_call when align=True with a scalar setexpr."""
     root = db_node(ar_spec((1,), name="a"), name="root", align=True)
-    build_bmap(root, align=BufferAlign.BYTE)
+    build_bmap(root, align=BufferAlign.AVX512)
     defs, _ = root.gen_call(setexpr=buffer_expr("m"))
     assert isinstance(defs, tuple)
 
@@ -487,10 +489,10 @@ def test_arraynode_alignment_and_buffer_view() -> None:
     """Ensure aligned leading dimension creates a backing view and trims it."""
     node = ar_spec((2, 5), np.float64, name="aligned", align_ldim=16)
     root = db_node(node, name="root")
-    build_bmap(root, align=BufferAlign.BYTE)
+    build_bmap(root, align=BufferAlign.AVX512)
 
-    buffer = aligned_buffer(eval_buff_expr(root.nbytes), align=BufferAlign.BYTE)
-    arrays_map(root, balign=BufferAlign.BYTE, _buffer=buffer)
+    buffer = aligned_buffer(eval_buff_expr(root.nbytes), align=BufferAlign.AVX512)
+    arrays_map(root, balign=BufferAlign.PAGE, _buffer=buffer)
 
     assert node.barray is not None
     assert node.array is not None
@@ -502,7 +504,7 @@ def test_arraynode_alignment_and_buffer_view() -> None:
 
     direct = ar_spec((2,), np.float32, name="direct")
     direct.ofs = 0
-    buffer = aligned_buffer(eval_buff_expr(direct.nbytes), align=BufferAlign.BYTE)
+    buffer = aligned_buffer(eval_buff_expr(direct.nbytes), align=BufferAlign.AVX512)
     direct.mk_array(buffer, sym_dic={})
     assert direct.array is not None
 
@@ -518,7 +520,7 @@ def test_symbolic_dtype_and_free_symbols() -> None:
     """Cover symbolic dtype handling and symbol collection on nodes."""
     node = ar_spec((3,), dtype="type_flt", name="sym")
     root = db_node(node, name="root", align=False)
-    symbols = build_bmap(root, align=BufferAlign.BYTE)
+    symbols = build_bmap(root, align=BufferAlign.AVX512)
 
     assert isinstance(node.dtype, sym.Symbol)
     assert any(s.name == "type_flt" for s in symbols)
@@ -529,7 +531,7 @@ def test_build_buffer_allocator_shared_root() -> None:
     a = ar_spec((2,), name="a")
     b = ar_spec((3,), name="b")
     root = sb_node(a, b, name="shared")
-    build_bmap(root, align=BufferAlign.BYTE)
+    build_bmap(root, align=BufferAlign.AVX512)
 
     alloc_src = build_buffer_allocator(root, args=("n",))
     _write_test_output("test_build_buffer_allocator_shared_root", alloc_src, is_py=True)
@@ -589,7 +591,7 @@ def test_arraynode_init_op_variants() -> None:
 def test_container_gen_call_align_false() -> None:
     """Exercise ContainerNode.gen_call when align is False."""
     root = db_node(ar_spec((1,), name="a"), name="root", align=False)
-    build_bmap(root, align=BufferAlign.BYTE)
+    build_bmap(root, align=BufferAlign.AVX512)
     expr = root.gen_call(setexpr=root.nbytes)
     assert isinstance(expr[0], str)
 
@@ -617,8 +619,8 @@ def test_align_ldim_symbolic_expr() -> None:
 def test_build_buffer_allocator_subname() -> None:
     """Cover allocator generation with subname enabled."""
     root = sb_node(ar_spec((2,), name="a"), name="root")
-    build_bmap(root, align=BufferAlign.BYTE)
-    alloc_src = build_buffer_allocator(root, subname=True, fullreduce=False)
+    rgs=build_bmap(root, align=BufferAlign.AVX512)
+    alloc_src = build_buffer_allocator(root,rgs, subname=True, fullreduce=False)
     _write_test_output("test_build_buffer_allocator_subname", alloc_src, is_py=True)
     assert "return" in alloc_src
 
@@ -627,17 +629,18 @@ def test_value_node_scalar_expr_error() -> None:
     """Cover allocator generation with a non-scalar ValueNode expression."""
     val = v_spec(sym.Matrix([1, 2]), name="m")
     root = sb_node(val, name="root")
-    build_bmap(root, align=BufferAlign.BYTE)
+    rgs = build_bmap(root, align=BufferAlign.AVX512)
     #any value node sb supported if it can be written to string.
     # with pytest.raises(TypeError):
     #     build_buffer_allocator(root, fullreduce=True)
 
-    alloc_src = build_buffer_allocator(root, fullreduce=False)
+    alloc_src = build_buffer_allocator(root,rgs, fullreduce=False)
     _write_test_output("test_value_node_scalar_expr_error", alloc_src, is_py=True)
     assert "return" in alloc_src
 
 
-@pytest.mark.xfail(reason="build_buffer_allocator fails on distinct root with fullreduce (IndexError)")
+#@pytest.mark.xfail(reason="build_buffer_allocator fails on distinct root with fullreduce (IndexError)",)
+@pytest.mark.regression()
 def test_bmap_get_clone_and_allocator_string() -> None:
     """Cover bmap_get resolution, deep cloning, and allocator codegen."""
     arr = ar_spec((2,), name="a")
@@ -650,7 +653,7 @@ def test_bmap_get_clone_and_allocator_string() -> None:
     assert isinstance(cloned, ContainerNode)
     assert cloned is not root
 
-    build_bmap(root, align=BufferAlign.BYTE)
+    rgs=build_bmap(root, align=BufferAlign.AVX512)
     alloc_src = build_buffer_allocator(
         root,
         args=(buffer_expr("n"), "type_flt"),
@@ -667,7 +670,7 @@ def test_save_bmap_tree_path(monkeypatch: pytest.MonkeyPatch) -> None:
         pytest.skip("Graphviz 'dot' not available")
 
     root = db_node(ar_spec((2,), name="a"), name="root")
-    build_bmap(root, align=BufferAlign.BYTE)
+    build_bmap(root, align=BufferAlign.AVX512)
     temp_root = pathlib.Path("temp")
     temp_root.mkdir(exist_ok=True)
     out_path = temp_root / "tree.png"
@@ -702,7 +705,7 @@ def test_bmap_pyvis_smoke() -> None:
     pytest.importorskip("pyvis")
 
     root = db_node(ar_spec((2,), name="a"), name="root")
-    build_bmap(root, align=BufferAlign.BYTE)
+    build_bmap(root, align=BufferAlign.AVX512)
     net = bmap_pyvis(root, with_offsets=True, height="400px")
     assert hasattr(net, "nodes")
 
@@ -710,8 +713,8 @@ def test_bmap_pyvis_smoke() -> None:
 def test_value_node_fullreduce_scalar() -> None:
     """Cover fullreduce allocator path with scalar values."""
     root = sb_node(v_spec(4, name="v"), name="root")
-    build_bmap(root, align=BufferAlign.BYTE)
-    src = build_buffer_allocator(root, fullreduce=True)
+    rgs=build_bmap(root, align=BufferAlign.AVX512)
+    src = build_buffer_allocator(root, rgs,fullreduce=True)
     _write_test_output("test_value_node_fullreduce_scalar", src, is_py=True)
     assert "return" in src
 
@@ -720,8 +723,8 @@ def test_allocator_fullreduce_distinct_align() -> None:
     """Exercise fullreduce allocator path with distinct/align subtrees."""
     inner = db_node(ar_spec((2,), name="a"), ar_spec((3,), name="b"), name="inner", align=True)
     root = sb_node(inner, name="root")
-    build_bmap(root, align=BufferAlign.BYTE)
-    src = build_buffer_allocator(root, fullreduce=True)
+    rgs=build_bmap(root, align=BufferAlign.AVX512)
+    src = build_buffer_allocator(root,rgs, fullreduce=True)
     _write_test_output("test_allocator_fullreduce_distinct_align", src, is_py=True)
     assert "return" in src
 
@@ -730,8 +733,8 @@ def test_allocator_fullreduce_align_false() -> None:
     """Exercise allocator path for distinct containers without per-child alignment."""
     inner = db_node(ar_spec((2,), name="a"), ar_spec((1,), name="b"), name="inner", align=False)
     root = sb_node(inner, name="root")
-    build_bmap(root, align=BufferAlign.BYTE)
-    src = build_buffer_allocator(root, fullreduce=True)
+    rgs=build_bmap(root, align=BufferAlign.AVX512)
+    src = build_buffer_allocator(root,rgs, fullreduce=True)
     _write_test_output("test_allocator_fullreduce_align_false", src, is_py=True)
     assert "return" in src
 
@@ -739,14 +742,14 @@ def test_allocator_fullreduce_align_false() -> None:
 def test_allocator_noreduce_align_true_value() -> None:
     """Cover no-reduction allocator with aligned distinct containers and values."""
     root = db_node(ar_spec((2,), name="a"), v_spec(4, name="v"), name="root", align=True)
-    build_bmap(root, align=BufferAlign.BYTE)
-    src = build_buffer_allocator(root, fullreduce=False)
+    rgs=build_bmap(root, align=BufferAlign.AVX512)
+    src = build_buffer_allocator(root,rgs, fullreduce=False)
     _write_test_output("test_allocator_noreduce_align_true_value", src, is_py=True)
     assert "return" in src
 
     inner = db_node(ar_spec((2,), name="a"), ar_spec((1,), name="b"), name="inner", align=False)
-    build_bmap(inner, align=BufferAlign.BYTE)
-    src2 = build_buffer_allocator(inner, fullreduce=False)
+    rgs=build_bmap(inner, align=BufferAlign.AVX512)
+    src2 = build_buffer_allocator(inner,rgs, fullreduce=False)
     _write_test_output("test_allocator_noreduce_align_true_value_inner", src2, is_py=True)
     assert "return" in src2
 
@@ -782,8 +785,8 @@ def test_bmap_pyvis_offsets_and_values() -> None:
     a = ar_spec((m,), name="a", align_ldim=16)
     v = v_spec(5, name="v")
     root = sb_node(a, v, name="shared")
-    build_bmap(root, align=BufferAlign.BYTE)
-    arrays_map(root, sym_dic={m: 4}, balign=BufferAlign.BYTE)
+    build_bmap(root, align=BufferAlign.AVX512)
+    arrays_map(root, sym_dic={m: 4}, balign=BufferAlign.PAGE)
     net = bmap_pyvis(root, with_offsets=True, height="300px")
     assert hasattr(net, "nodes")
 
@@ -886,8 +889,8 @@ def test_max_expr_codegen() -> None:
     n = buffer_expr("n")
     node = ar_spec((sym.Max(m, n),), np.float32, name="mx")
     root = db_node(node, name="root")
-    build_bmap(root, align=BufferAlign.BYTE)
-    src = build_buffer_allocator(root, fullreduce=True)
+    rgs=build_bmap(root, align=BufferAlign.AVX512)
+    src = build_buffer_allocator(root,rgs, fullreduce=True)
     _write_test_output("test_max_expr_codegen", src, is_py=True)
     assert "max" in src
     assert "return" in src
@@ -906,7 +909,7 @@ def test_arraynode_mk_array_buffer_view() -> None:
     a = ar_spec((2,), np.int32, name="a")
     b = ar_spec((3,), np.int32, name="b")
     root = db_node(a, b, name="root")
-    build_bmap(root, align=BufferAlign.BYTE)
+    build_bmap(root, align=BufferAlign.AVX512)
     #ofs is not needed for build_bmap and code generation, only in allocate_bmap for building the arrays.
     #assert b.ofs is not None
     buffer = np.zeros(int(root.nbytes), dtype=np.uint8)
@@ -981,8 +984,8 @@ def test_build_buffer_allocator_expr_substitution() -> None:
     a = ar_spec(("m + 1",), name="a")
     b = ar_spec(("n",), name="b")
     root = db_node(a, b, name="root", align=True)
-    build_bmap(root, align=BufferAlign.BYTE)
-    src = build_buffer_allocator(root, fullreduce=True)
+    rgs=build_bmap(root, align=BufferAlign.AVX512)
+    src = build_buffer_allocator(root,rgs, fullreduce=True)
     _write_test_output("test_build_buffer_allocator_expr_substitution", src, is_py=True)
     assert "def root" in src
     assert "return" in src

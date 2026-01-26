@@ -1,0 +1,14 @@
+_______________ coverage: platform win32, python 3.12.8-final-0 _______________
+
+Name                  Stmts   Miss Branch BrPart  Cover   Missing
+-----------------------------------------------------------------
+bmap\_nodes.py          245      0     78      2    99%   315->331, 547->550
+bmap\_procedures.py     339      9    122      5    96%   139, 187->exit, 306->308, 804-806, 846-849, 949-950, 1006->1009, 1016-1021
+bmap\_util.py           374     22    154      8    92%   14-18, 67, 76, 103->107, 462->465, 621-640, 713, 735->739, 740->746
+-----------------------------------------------------------------
+TOTAL                   962     31    354     15    95%
+
+1 file skipped due to complete coverage.
+=========================== short test summary info ===========================
+FAILED tests/unit/test_bmap_public_api.py::test_build_buffer_allocator_no_check
+============= 1 failed, 65 passed, 1 skipped, 8 warnings in 4.27s =============

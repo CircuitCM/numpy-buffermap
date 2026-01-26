@@ -1,0 +1,23 @@
+____________________ test_build_buffer_allocator_no_check _____________________
+
+    @pytest.mark.regression()
+    def test_build_buffer_allocator_no_check() -> None:
+        """Cover allocator generation with chkforbuffer disabled."""
+        root = sb_node(ar_spec((2,), name="a"), name="shared")
+        rgs=build_bmap(root, align=BufferAlign.AVX512)
+        alloc_src = build_buffer_allocator(root,rgs, chkforbuffer=False, fullreduce=False)
+        _write_test_output("test_build_buffer_allocator_no_check", alloc_src, is_py=True)
+>       assert "None=None" not in alloc_src #fix later
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 'None=None' not in 'def shared(...    return a'
+E         
+E         'None=None' is contained here:
+E           def shared(None=None):
+E         ?            +++++++++
+E               cd_ = lambda x, dv: (x + dv - 1)//dv
+E               
+E               ...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show
+
+tests\unit\test_bmap_public_api.py:415: AssertionError

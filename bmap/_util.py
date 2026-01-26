@@ -281,6 +281,40 @@ def buffer_expr(sy: SizeInput) -> SizeParam: ...
 def buffer_expr(sy: SizeInput|None) -> SizeMaybe: ...
 
 
+def _buffer_expr_from_str(sy: str, warn: bool) -> SizeParam:
+    syc = _SYMCACHE.get(sy, None)
+    # If string is not cached yet, parse and cache it.
+    if syc is None:
+        # If it looks like an equation, parse to a sympy expression.
+        if check_eqstr(sy):
+            # A call to free_symbols is not expensive. but parse_expr and creating symbols individually can be,
+            # so we will also cache the symbols from the expression bc they could appear in the propagation.
+            # note if this comes out anything other than an expression or doesn't have free_symbols it will error.
+            # Which means symbols need to be a valid string without whitespaces or any other notation.
+            exp = sym.parse_expr(sy, global_dict=_GB_EXPR)
+            # print(exp)
+            # If parse result is a symbol, cache under both original and normalized names.
+            if isinstance(exp, sym.Symbol):
+                _SYMCACHE[sy] = exp
+                _SYMCACHE[exp.name] = exp
+                if warn: print(
+                        f'Warning: Buffer Symbol cached under "{sy}" and "{exp.name}", '
+                        "correct symbol formatting does not include extra whitespace "
+                        "or operators."
+                    )
+            else:
+                _SYMCACHE[sy] = exp
+                sybs = {syb for syb in exp.free_symbols if isinstance(syb, sym.Symbol)}
+                for syb in sybs:
+                    if syb.name not in _SYMCACHE: _SYMCACHE[syb.name] = syb
+            return exp
+        # Otherwise treat as a plain symbol name.
+        _SYMCACHE[sy] = syc = sym.Symbol(sy, integer=True, positive=True)
+        return syc
+    # If cached, reuse cached value.
+    return syc
+
+
 def buffer_expr(sy:SizeInput|None, warn:bool = True)->SizeMaybe:
     """Buffer symbol or expression generator with object cache for faster tree operations.
 
@@ -303,36 +337,11 @@ def buffer_expr(sy:SizeInput|None, warn:bool = True)->SizeMaybe:
     with a literal int value, than it is to call ``.subs`` and then int cast an
     object expression or symbol in sympy.
     """
+    # If literal int/None, return as-is (static or absent parameter).
     if isinstance(sy, int) or sy is None: return sy  # This allows value negatives which might be intentional. and None is a special return type.
+    # If string, use cached symbol/expression parsing.
     if isinstance(sy, str):
-        syc = _SYMCACHE.get(sy, None)
-        if syc is None:
-            if check_eqstr(sy):
-                # A call to free_symbols is not expensive. but parse_expr and creating symbols individually can be,
-                # so we will also cache the symbols from the expression bc they could appear in the propagation.
-                # note if this comes out anything other than an expression or doesn't have free_symbols it will error.
-                # Which means symbols need to be a valid string without whitespaces or any other notation.
-                exp = sym.parse_expr(sy, global_dict=_GB_EXPR)
-                # print(exp)
-                if isinstance(exp, sym.Symbol):
-                    _SYMCACHE[sy] = exp
-                    _SYMCACHE[exp.name] = exp
-                    if warn: print(
-                            f'Warning: Buffer Symbol cached under "{sy}" and "{exp.name}", '
-                            "correct symbol formatting does not include extra whitespace "
-                            "or operators."
-                        )
-                else:
-                    _SYMCACHE[sy] = exp
-                    sybs = {syb for syb in exp.free_symbols if isinstance(syb, sym.Symbol)}
-                    for syb in sybs:
-                        if syb.name not in _SYMCACHE: _SYMCACHE[syb.name] = syb
-                return exp
-            else:
-                _SYMCACHE[sy] = syc = sym.Symbol(sy, integer=True, positive=True)
-                return syc
-        else:
-            return syc
+        return _buffer_expr_from_str(sy, warn)
 
     # A symbol is an expression, but not all expressions are symbols (e.g.
     # equations that are made of symbols).
@@ -341,9 +350,11 @@ def buffer_expr(sy:SizeInput|None, warn:bool = True)->SizeMaybe:
     # By calling is_symbol this should also help keep errors between sym Basic
     # that will have a bool is_symbol field always and any other objects that
     # might not.
+    # If user provided a sympy.Symbol, normalize/canonicalize it through cache.
     if isinstance(sy, sym.Symbol):
         sn = sy.name
         syc = _SYMCACHE.get(sn, None)
+        # If missing from cache, normalize integer/positive constraints and then cache.
         if syc is None:
             # positive means > 0.
             is_integer = bool(getattr(sy, "is_Integer", False))
@@ -357,11 +368,13 @@ def buffer_expr(sy:SizeInput|None, warn:bool = True)->SizeMaybe:
         # match the original, eg using // instead of floor( ./.).
         # Without type checking the class however, it means the error could pop up elsewhere
         # if it implements an is_symbol field, just note that.
+    # If expression (non-symbol), return it directly to preserve caller-built structure.
     elif isinstance(sy, sym.Expr):
         return sy
     # if safe:
     #      raise ImportError(f'Sympy not installed but a dynamic parameter: {sy} was requested.\nPlease install sympy.')
     # else:
+    # Otherwise, attempt int conversion and let it raise for invalid inputs.
     return int(sy)  # which will raise if this isn't possible.
 
 
@@ -486,23 +499,28 @@ def _bxpr(
     exprs: SizeParam | SizeSeq | None,
     ct: list[int],
 ) -> SizeParam | SizeSeq | None:
+    # If this is an expression placeholder, pull the next reduced expression from exls.
     if is_eqn(exprs):
         ex = exls[ct[0]]
         ct[0] += 1
         return ex
+    # If this is a tuple/list, substitute each expression placeholder in order.
     elif isinstance(exprs, (tuple, list)):
         dl = []
         for v in exprs:
+            # If element is an expression placeholder, replace with next reduced expression.
             if is_eqn(v):
                 dl.append(exls[ct[0]])
                 ct[0] += 1
+            # Otherwise keep literal element (e.g. int) as-is.
             else:
                 #assert isinstance(v, (sym.Expr, int))
                 dl.append(v) #type: ignore[bad-argument-type] #a plain object type shouldnt be getting mixed in based off the signature.
         return dl
+    # Otherwise return literal exprs unchanged (including None).
     return exprs
 
-#todo: change the if then raise, into asserts.
+
 def _arrbxpr(
     exls: SizeSeq,
     exprss: tuple[SizeParam, SizeSeq, SizeSeq],
@@ -511,9 +529,9 @@ def _arrbxpr(
     first = _bxpr(exls, exprss[0], ct)
     second = _bxpr(exls, exprss[1], ct)
     third = _bxpr(exls, exprss[2], ct) if exprss[1] is not exprss[2] else second
-    if first is None or isinstance(first, Sequence): raise TypeError("Expected a scalar byte expression.")
-    if not isinstance(second, Sequence): raise TypeError("Expected a backing-shape sequence.")
-    if not isinstance(third, Sequence): raise TypeError("Expected a logical-shape sequence.")
+    assert first is not None and not isinstance(first, Sequence), "Expected a scalar byte expression."
+    assert isinstance(second, Sequence), "Expected a backing-shape sequence."
+    assert isinstance(third, Sequence), "Expected a logical-shape sequence."
     # print(ct,ot)
     return (first, second, third)
 
@@ -599,6 +617,70 @@ def lyr_str_key(lyr: str) -> int:
     return r
 
 
+def _reduct_chk(lysm, n, i, layers, red_syms, deps):
+    ipos = []
+    lpos = []
+    rmi = None
+    # Is there only one in the reduced equations
+    for m in range(len(red_syms)):
+        # If this temp symbol appears in reduced output, record the position.
+        if lysm in red_syms[m]:
+            ipos.append(m)
+            if rmi is not None: break
+            rmi = n
+    # Is there only one in the dependent layers.
+    for r in range(i + 1, len(layers)):
+        rly = layers[r]
+        for k in range(len(rly)):
+            # If this temp symbol is a dependency for another temp, record that use-site.
+            if lysm in deps[rly[k][0]]:
+                lpos.append((r, k))
+                if rmi is not None: break
+                rmi = n
+    return ipos, lpos, rmi
+
+
+def _oneassign_del(layers, reduced, deps) -> None: #pragma: no cover
+    red_syms = [e.free_symbols for e in reduced]
+    # for r in reduced:
+    #     print(r)
+    # Walk layers from last to first so replacements don't invalidate later dependency checks.
+    for i in range(len(layers) - 1, -1, -1):
+        # we need to: delete layers with only 1, and replace its symbol with the layer ahead of it
+        # or within reduced.
+        # because we use red_syms and we use deps we need to update or delete them from there too..
+        tpl = layers[i]
+        dg = []
+        for n in range(len(tpl)):
+            lyg = tpl[n]
+            if lyg[2] == 2: continue
+            lysm = lyg[0]
+            ipos, lpos, rmi = _reduct_chk(lysm, n, i, layers, red_syms, deps)
+            tl = len(ipos) + len(lpos)
+            #if there are only 1, (one for the assignment, or one for a single reference in t# or arrays.)
+            if tl == 1:
+                if rmi is None: continue
+                dg.append(rmi)
+                # if it's in arrays
+                if len(lpos) == 0:
+                    rep = ipos[0]
+                    reduced[rep] = reduced[rep].xreplace({lysm: lyg[1]})
+                    rs = red_syms[rep]
+                    #replace layer its on
+                    red_syms[rep] = (rs - {lysm}) | deps[lysm]
+                    deps.pop(lysm)
+                else:
+                    rp, kp = lpos[0]
+                    rly = layers[rp]
+                    rly[kp][1] = rly[kp][1].xreplace({lysm: lyg[1]})
+                    rk = rly[kp][0]
+                    rs = deps[rk]
+                    deps[rk] = (rs - {lysm}) | deps[lysm]
+                    deps.pop(lysm)
+            # Pop deleted entries from end to start to avoid index shifts.
+            for v in dg[::-1]: tpl.pop(v)
+
+
 def post_process_cse(repls, reduced, symbols, oneassign_del=True, clean_order=True):
     """After cse, we group temps into tuple assignment layers based on their own dependencies.
 
@@ -613,89 +695,50 @@ def post_process_cse(repls, reduced, symbols, oneassign_del=True, clean_order=Tr
     temps = [lhs for lhs, _ in repls]
     pending = set(temps)
 
-    rhs_map = {lhs: rhs for lhs, rhs in repls}
-    deps = {lhs: {s for s in rhs.free_symbols if s in pending} for lhs, rhs in repls}
+    # Build lookup structures for rhs and dependency sets.
+    rhs_map = {}
+    deps = {}
+    for lhs, rhs in repls:
+        rhs_map[lhs] = rhs
+        deps[lhs] = {s for s in rhs.free_symbols if s in pending}
 
     available = set()
     layers = []
 
     while pending:
+        # A temp is ready when all of its dependent temps were already assigned in prior layers.
         ready = [t for t in temps if t in pending and deps[t] <= available]
+        # If no temps are ready, CSE produced a cycle or we have unresolved deps.
         if not ready:
-            cycle = [t for t in temps if t in pending]
-            raise RuntimeError(f"Could not layer assignments (cycle/unresolved deps). Remaining: {cycle}")
+            raise RuntimeError(f"Could not layer assignments (cycle/unresolved deps). Remaining: {pending}")
 
-        # ready.sort(key=layer_sort_key)
+        # We build a layer in the original temp order to keep deterministic output.
         layers.append([[r, rhs_map[r], lyr_str_key(str(rhs_map[r]))] for r in ready])
 
+        # Once a layer is emitted, those temps are no longer pending.
         pending.difference_update(ready)
+        # And they become available to satisfy later dependency sets.
         available.update(ready)
     
-    oneassign_del=False #seems actually not needed at this point.
-    if oneassign_del: # pragma: no branch
-        red_syms = [e.free_symbols for e in reduced]
-        # for r in reduced:
-        #     print(r)
-        for i in range(len(layers) - 1, -1, -1):
-            # we need to: delete layers with only 1, and replace its symbol with the layer ahead of it
-            # or within reduced.
-            # because we use red_syms and we use deps we need to update or delete them from there too..
-            tpl = layers[i]
-            dg = []
-            for n in range(len(tpl)):
-                lyg = tpl[n]
-                if lyg[2] == 2: continue
-                lysm = lyg[0]
-                rmi = None
-                ipos = []
-
-                # Is there only one in the reduced equations
-                for m in range(len(red_syms)):
-                    if lysm in red_syms[m]:
-                        ipos.append(m)
-                        if rmi is not None: break
-                        rmi = n
-                lpos = []
-                # Is there only one in the dependent layers.
-                for r in range(i + 1, len(layers)):
-                    rly = layers[r]
-                    for k in range(len(rly)):
-                        if lysm in deps[rly[k][0]]:
-                            lpos.append((r, k))
-                            if rmi is not None: break
-                            rmi = n
-                tl = len(ipos) + len(lpos)
-                #if there are only 1, (one for the assignment, or one for a single reference in t# or arrays.)
-                if tl == 1:
-                    dg.append(rmi)
-                    # if it's in arrays
-                    if len(lpos) == 0:
-                        rep = ipos[0]
-                        reduced[rep] = reduced[rep].xreplace({lysm: lyg[1]})
-                        rs = red_syms[rep]
-                        #replace layer its on
-                        red_syms[rep] = (rs - {lysm}) | deps[lysm]
-                        deps.pop(lysm)
-                    else:
-                        rp, kp = lpos[0]
-                        rly = layers[rp]
-                        rly[kp][1] = rly[kp][1].xreplace({lysm: lyg[1]})
-                        rk = rly[kp][0]
-                        rs = deps[rk]
-                        deps[rk] = (rs - {lysm}) | deps[lysm]
-                        deps.pop(lysm)
-            for v in dg[::-1]: tpl.pop(v)
+    # Current pipeline disables oneassign_del unless explicitly enabled.
+    # oneassign_del=False #seems actually not needed at this point.
+    # # If enabled, delete single-use temps by inlining their rhs into the sole use-site.
+    # if oneassign_del: #pragma: no branch
+    #      _oneassign_del(layers, reduced, deps) #pragma: no cover
 
     repd = {}
     for lyr in layers:
+        # Sort within each layer so function helpers (cd_/fd_) are declared before uses.
         lyr.sort(key=lambda x: x[-1])
         for sg in lyr:
+            # If clean_order is enabled, rename temps so tuple assignment reads in order.
             if clean_order:
                 sm = next(symbols)
                 repd[sg[0]] = sm
                 sg[0] = sm
             sg.pop()
     if clean_order:
+        # Apply renames consistently to reduced outputs and to remaining layers.
         for i in range(len(reduced)): reduced[i] = reduced[i].xreplace(repd)
         for lyr in layers:
             for sg in lyr: sg[1] = sg[1].xreplace(repd)

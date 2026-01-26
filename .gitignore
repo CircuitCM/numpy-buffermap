@@ -21,4 +21,5 @@ tests/report/vulture/
 **/html
 progress.md
 pyproject_temp.toml
+refactor_plan.md
 temp

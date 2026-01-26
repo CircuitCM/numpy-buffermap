@@ -63,44 +63,76 @@ def build_buffer_allocator(
     :param buffer_map: Original buffer map.
     :param balign: The initial alignment of the buffer. It must be greater than or equal to the alignment you choose to build the buffer_map with.
     """
-    # make sure sym_dic is using symbols, so for user it's ok to specify them with string keys
+    # Normalize args to names so user may pass sympy.Symbol or str.
     args = [*((k.name if isinstance(k, sym.Symbol) else k) for k in args),]
+    # Sort args so dtype params are declared first in generated signature.
     args.sort(key=lambda x: c_orlen(x, "type_"),)
-    #only symbols not expressions supported now, all expressions should be evaluated into needed equations.
+    # Normalize kwargs keys to names; only symbol keys are supported in allocator signature.
     kwargs ={(k.name if isinstance(k, sym.Symbol) else k): v for k, v in kwargs.items()} if kwargs is not None else {}
     # for now there is also no dead-parameter/dead-code removal, and no checks for if all used input parameters are referenced in the header
+    # If caller wants buffer existence check, include check_alloc logic and seed ct for reduced expr walk.
     if chkforbuffer:
         hd = BButil.build_header(buffer_map, args, kwargs, balign=balign)
         assert buffer_map.nbytes is not None
         allq: list[SizeParam] = [buffer_map.nbytes]
         ct = [1]
+    # Otherwise omit check_alloc and start ct at 0.
     else:
         hd = BButil.build_header(buffer_map, args, kwargs, check_alloc=None, balign=balign)
         allq = []
         ct = [0]
 
+    # If fullreduce is enabled, CSE-reduce expressions then emit compact allocator code.
     if fullreduce:
-        allq.extend(_cxprs(buffer_map))  # already 'least expressions' form.
-        if buffer_map.rule == BufferMap.DISTINCT: allq.pop()  # if initial buffer node is distinct we don't need the
-        lyrs, reduc = cse_codereduction(allq, tempvar)
-        strl = ls_layers(lyrs)
-        allc = (BButil.add_balloc(reduc[0]),) if chkforbuffer else ()
-        mkls = _bb2(buffer_map, reduc, subname=subname, ct=ct)
-        mdst = "\n".join(mkls[0])
-        mdst = mdst.replace("\n", "\n    ")  # in case there are multi-line statements
-        estr = f"return {', '.join(str(v) for v in mkls[1])}"
+        strl, allc, mdst, estr = _full_reduce(buffer_map, allq, chkforbuffer, tempvar, subname, ct)
+    # Otherwise emit direct expressions without reduction.
     else:
         # no reduction is quicker but also much more ugly and less readable.
-        mkls = _bba(buffer_map, subname=subname)
-        if buffer_map.rule == BufferMap.DISTINCT: mkls[0].pop()
-        strl = ()
-        allc = (BButil.add_balloc(allq[0]),) if chkforbuffer else ()
-        mdst = "\n".join(mkls[0])
-        mdst = mdst.replace("\n", "\n    ")  # in case there are multi-line statements
-        estr = f"return {', '.join(str(v) for v in mkls[1])}"
+        strl, allc, mdst, estr = _no_reduce(buffer_map, allq, chkforbuffer, subname)
 
     fullf = "\n    ".join((hd, *strl, *allc, mdst, "", estr))
     return fullf
+
+
+def _full_reduce(
+    buffer_map: ContainerNode,
+    allq: list[SizeParam],
+    chkforbuffer: bool,
+    tempvar: str,
+    subname: bool,
+    ct: list[int],
+):
+    # Collect all expression placeholders from the tree so CSE can minimize them.
+    allq.extend(_cxprs(buffer_map))  # already 'least expressions' form.
+    # If the root is DISTINCT, drop the final trailing offset expression (it is a no-op slice).
+    #if buffer_map.rule == BufferMap.DISTINCT: allq.pop()
+    lyrs, reduc = cse_codereduction(allq, tempvar)
+    strl = ls_layers(lyrs)
+    # If chkforbuffer is enabled, inject allocator buffer creation using the reduced root size.
+    allc = (BButil.add_balloc(reduc[0]),) if chkforbuffer else ()
+    mkls = _bb2(buffer_map, reduc, subname=subname, ct=ct)
+    mdst = "\n".join(mkls[0])
+    mdst = mdst.replace("\n", "\n    ")  # in case there are multi-line statements
+    estr = f"return {', '.join(str(v) for v in mkls[1])}"
+    return strl, allc, mdst, estr
+
+
+def _no_reduce(
+    buffer_map: ContainerNode,
+    allq: list[SizeParam],
+    chkforbuffer: bool,
+    subname: bool,
+):
+    mkls = _bba(buffer_map, subname=subname)
+    # For DISTINCT roots, drop the last trailing slice statement (it would be an empty advancement).
+    if buffer_map.rule == BufferMap.DISTINCT: mkls[0].pop()
+    strl = ()
+    # If chkforbuffer is enabled, inject allocator buffer creation using the unreduced root size.
+    allc = (BButil.add_balloc(allq[0]),) if chkforbuffer else ()
+    mdst = "\n".join(mkls[0])
+    mdst = mdst.replace("\n", "\n    ")  # in case there are multi-line statements
+    estr = f"return {', '.join(str(v) for v in mkls[1])}"
+    return strl, allc, mdst, estr
 
 
 def _is_shape_tuple(value: tuple[int, ...] | tuple[str, tuple[int, ...]],) -> TypeGuard[tuple[int, ...]]: 
@@ -110,21 +142,55 @@ def _is_shape_tuple(value: tuple[int, ...] | tuple[str, tuple[int, ...]],) -> Ty
 def _cxprs(bn: BaseNode, excs: list[sym.Expr] | None = None) -> list[sym.Expr]:
     wn = excs is None
     if wn: excs = []
+    # If node is a DISTINCT container, collect either aligned_eqns or per-child nbytes.
     if isinstance(bn, ContainerNode) and bn.rule == BufferMap.DISTINCT:
+        # If align=True, include aligned_eqns (container-specific per-child offsets).
         if bn.align:
             for c, eq in zip(bn.children, bn.aligned_eqns, strict=False):
                 _cxprs(c, excs)
                 _pxpr(excs, eq)
+        # Otherwise, offsets are driven by child nbytes directly.
         else:
             for c in bn.children:
                 _cxprs(c, excs)
                 _pxpr(excs, c.nbytes)
+    # Otherwise recurse through children and add leaf expressions as needed.
     else:
         for c in bn.children: _cxprs(c, excs)
         if isinstance(bn, ArrayNode): _arrpxpr(excs, bn.sym_def())
         elif isinstance(bn, ValueNode): _pxpr(excs, bn.sym_def())
 
     return excs
+
+
+def _cbb2(
+    bnode: ContainerNode,
+    exls: SizeSeq,
+    subname: bool,
+    sn: str | None,
+    ct: list[int],
+    mkls: tuple[list[str], list[str | int | float]],
+    is_root: bool,
+) -> None:
+    # If container is DISTINCT, emit per-child buffer slicing statements.
+    if bnode.rule == BufferMap.DISTINCT:
+        mkls[0].append("")
+        bc = bnode.children
+        bcl = len(bc) - 1
+        # If align=True, use aligned_eqns; otherwise drive offsets from child nbytes.
+        eqs = bnode.aligned_eqns if bnode.align else tuple(c.nbytes for c in bc)
+        for i, (c, eq) in enumerate(zip(bc, eqs, strict=False)):
+            _bb2(c, exls, subname, bnode.name, ct, mkls)
+            # Root DISTINCT drops its final trailing offset expression; stop before emitting the final pop.
+            if is_root and i == bcl: break
+            # Root DISTINCT may also be missing the last reduced expr; guard ct from running off the reduced list.
+            if is_root and ct[0] >= len(exls): break  # root distinct pops final expr; guard ct
+            ot = _bxpr(exls, eq, ct)
+            mkls[0].append(ContainerNode.s_def(ot))
+    # Otherwise container is SHARED: recurse only (no per-child buffer slicing).
+    else:
+        mkls[0].append("")
+        for c in bnode.children: _bb2(c, exls, subname, bnode.name, ct, mkls)
 
 
 def _bb2(
@@ -138,43 +204,27 @@ def _bb2(
     is_root = mkls is None
     if mkls is None: mkls = ([], [])
     if ct is None: ct = [0]
+    # If node is a container, delegate to shared distinct handler.
     if isinstance(bnode, ContainerNode):
-        if bnode.rule == BufferMap.DISTINCT:
-            mkls[0].append("")
-            bc = bnode.children
-            bcl = len(bc) - 1
-            if bnode.align:
-                eqs = bnode.aligned_eqns
-                for i, (c, eq) in enumerate(zip(bc, eqs, strict=False)):
-                    _bb2(c, exls, subname, bnode.name, ct, mkls)
-                    # so we don't run into exls that is too far extended
-                    if is_root and i == bcl: break
-                    ot = _bxpr(exls, eq, ct)
-                    mkls[0].append(ContainerNode.s_def(ot))
-            else:
-                for i, c in enumerate(bc):
-                    _bb2(c, exls, subname, bnode.name, ct, mkls)
-                    if is_root and i == bcl: break
-                    ot = _bxpr(exls, c.nbytes, ct)
-                    mkls[0].append(ContainerNode.s_def(ot))
-        else:
-            mkls[0].append("")
-            for c in bnode.children: _bb2(c, exls, subname, bnode.name, ct, mkls)
+        _cbb2(bnode, exls, subname, sn, ct, mkls, is_root)
+    # If node is an array, substitute reduced expressions into (nbytes, bshape, shape) and emit its gen_call.
     elif isinstance(bnode, ArrayNode):
-            bytexpr, bshapet, shapet = _arrbxpr(exls, bnode.sym_def(), ct)
-            s0,s1 = bnode.gen_call(
-                bytexpr=bytexpr,
-                bshape=bshapet,
-                shape=shapet,
-                subn=sn if subname else None,
-            )
-            mkls[0].append(s0); mkls[1].append(s1)
+        bytexpr, bshapet, shapet = _arrbxpr(exls, bnode.sym_def(), ct)
+        s0,s1 = bnode.gen_call(
+            bytexpr=bytexpr,
+            bshape=bshapet,
+            shape=shapet,
+            subn=sn if subname else None,
+        )
+        mkls[0].append(s0); mkls[1].append(s1)
+    # Otherwise treat as a ValueNode-like leaf and let its gen_call decide assignment vs inline return.
     else:
-        #assume it's something like a ValueNode that will succeed, or we just let it fail.
         s0,s1 = bnode.gen_call(
             subn=sn if subname else None,
         )
-        mkls[0].append(s0); mkls[1].append(s1) #type: ignore[bad-argument-type]
+        # If ValueNode has no name, gen_call returns no assignment line; skip appending None.
+        if s0 is not None: mkls[0].append(s0)
+        mkls[1].append(s1) #type: ignore[bad-argument-type]
 
     return mkls
 
@@ -186,27 +236,30 @@ def _bba(
     sn: str | None = None,
 ) -> tuple[list[str], list[str | int | float]]:
     if mkls is None: mkls = ([], [])
+    # If node is a container, emit buffer slicing statements in preorder.
     if isinstance(bnode, ContainerNode):
         mkls[0].append("")
+        # DISTINCT containers advance buffer between children.
         if bnode.rule == BufferMap.DISTINCT:
-            if bnode.align:
-                defs, _ = bnode.gen_call()
-                for c, eq in zip(bnode.children, defs, strict=False):
-                    _bba(c, mkls, subname, bnode.name)
-                    mkls[0].append(eq)
-            else:
-                for c in bnode.children:
-                    _bba(c, mkls, subname, bnode.name)
-                    mkls[0].append(ContainerNode.s_def(c.nbytes))
+            # If align=True, use aligned_eqns; otherwise use child nbytes for slicing.
+            defs = bnode.aligned_eqns if bnode.align else tuple(c.nbytes for c in bnode.children)
+            for c, eq in zip(bnode.children, defs, strict=False):
+                _bba(c, mkls, subname, bnode.name)
+                mkls[0].append(ContainerNode.s_def(eq))
+        # SHARED containers recurse only (no slicing).
         else: 
             for c in bnode.children: _bba(c, mkls, subname, bnode.name)
+    # If node is an ArrayNode, emit its allocation/view statement.
     elif isinstance(bnode, ArrayNode): 
         s0,s1 = bnode.gen_call(subn=sn if subname else None)
         mkls[0].append(s0);mkls[1].append(s1)
+    # Otherwise treat as ValueNode and emit its assignment/inline return.
     else:
         assert isinstance(bnode, ValueNode)
         s0,s1 = bnode.gen_call(subn=sn if subname else None)
-        mkls[0].append(s0);mkls[1].append(s1) #type: ignore[bad-argument-type]
+        # If ValueNode has no name, gen_call returns no assignment line; skip appending None.
+        if s0 is not None: mkls[0].append(s0)
+        mkls[1].append(s1) #type: ignore[bad-argument-type]
     
     return mkls
 
@@ -262,9 +315,13 @@ def reduce_bmap(bmap: ContainerNode, *, name_join: bool = True, force_merge: boo
     If ``force_merge`` is False, a ``no_merge=True`` on either container blocks
     the merge; otherwise it is ignored.
     """
+    # Walk the tree in preorder and merge container children into parents when compatible.
     for node in list(PreOrderIter(bmap)):
+        # Only ContainerNodes participate in merge rules.
         if not isinstance(node, ContainerNode): continue
+        # Consider each child for possible merge into this container.
         for ch in list(node.children): 
+            # Merge only when rules/align match, and no_merge doesn't block unless force_merge is set.
             if (
                 isinstance(ch, ContainerNode)
                 and node.rule == ch.rule
@@ -290,18 +347,22 @@ def _compute_nbytes(
     - ``ContainerNode`` combines child sizes per rule; ``align`` on
       DISTINCT containers disables per-child rounding.
     """
+    # If caller didn't supply symbol accumulator, create one.
     if _symbols is None: _symbols = set()
     align_expr = buffer_expr(align)
+    # If leaf (ValueNode/ArrayNode), record its symbols and return its nbytes directly.
     if isinstance(node, ItemNode):
         _symbols.update(s for s in node.free_symbols)
         return node.nbytes
     # compute child sizes
     assert isinstance(node, ContainerNode)
+    # If SHARED, use max(child sizes) then round once.
     if node.rule == BufferMap.SHARED:
         sizes = (*(_n_(ch, align, simplify, _symbols) for ch in node.children),)
         raw = gen_max(sizes, simplify) if sizes else 0
         # round up shared region
         node.nbytes = roundup(raw, align_expr)
+    # If DISTINCT + align=True, round each child (arrays only) and sum.
     elif node.align:  # we make sure every node is aligned.
         ng = node.aligned_eqns
         ng.clear()
@@ -316,6 +377,7 @@ def _compute_nbytes(
             for ch in node.children
         )
         node.nbytes = gen_add(ng, simplify) if ng else 0
+    # Otherwise DISTINCT + align=False: sum then round once at container level.
     else:
         # if not align then nbytes will be rounded to match whole container alignment, but not children alignment. Which means that arraynodes that must be aligned contiguously can be forced to, if they represent the memory of another array exactly.
         # Which could be useful maybe when you have a shared node, one array, then a distinct sibling node where all
@@ -649,28 +711,47 @@ def array_arspec(
         #use the *axis ordered* strides to figure out the actual backing array format.
         torder, bshape = _sao(arr)
         #No support yet for multiple discontinuous dimensions.
+        # If caller forces incompatible order, drop inferred alignment.
         if not (nr or order == torder) and align_ldim is UO: align_ldim = None
     #Otherwise it's not discontinuous so the leading dimension doesn't have alignment from the array (but we can still request it)
+    # Otherwise, base array is contiguous so it doesn't carry alignment info by default.
+    # If caller didn't request alignment explicitly, default to None for contiguous arrays.
     elif align_ldim is UO: align_ldim = None
     #A is not a real alignment type we could also use None, but its a little more readable.
     #If we didn't specify an order that is F or C
+    # If order is not explicitly C/F, inherit it from the input array.
+    # If caller didn't specify explicit C/F order, resolve 'A'/None to the array's order.
     if nr:order = torder
     #if (have a specified shape) and not (shapes are equal), but align_ldim is UO, we will just assume we shouldn't use original alignment.
+    # If caller forces a different logical shape, don't inherit alignment unless explicitly requested.
+    # If requested shape differs from arr.shape, drop inherited align_ldim unless explicitly set.
     if not (shape is None or shape == arr.shape) and align_ldim is UO: align_ldim = None
     #but if no specified shape (will use original) or shapes are equal, assume we can use base dimensions of array for new base.
+    # If alignment remains undecided, inherit base backing shape from discontinuous array path.
+    # If still undecided, inherit the backing shape (only set in discontinuous path).
     if align_ldim is UO: align_ldim = bshape #type: ignore[unbound-name]
     #we don't have to worry about bshape not existing, because we know if bshape is NA then arr is C or F contiguous and align_ldim=None from prev set.
-    #To make pyrefly stop complaining. We know all UO's at this point are not possible.
-    #todo: remove casts, make asserts.
-    order,init_op,align_ldim = cast(str,order),cast(InitOp,init_op),cast(ShapeMaybe,align_ldim)
-    return ar_spec(
-        arr.shape if shape is None else shape,
-        arr.dtype if dtype is None else dtype,
-        order,
-        arr if init_op is UO else init_op,
-        name,
-        align_ldim, 
-    )
+    return _aarspec(arr, shape, dtype, order, init_op, name, align_ldim)
+
+
+def _aarspec(
+    arr: np.ndarray,
+    shape: ShapeInput | None,
+    dtype: DTypeLike | None,
+    order: Any,
+    init_op: InitOp | UseOther,
+    name: str | None,
+    align_ldim: Any,
+) -> ArrayNode:
+    # At this point order must be concrete and align_ldim cannot be UO.
+    assert isinstance(order, str)
+    assert not isinstance(align_ldim, UseOther)
+    # Default missing shape/dtype from the input array to preserve semantics.
+    sshape = arr.shape if shape is None else shape
+    ddtype = arr.dtype if dtype is None else dtype
+    # If init_op is UO, use the original array as init source; otherwise use caller-provided initializer.
+    iinit = arr if isinstance(init_op, UseOther) else init_op
+    return ar_spec(sshape, ddtype, order, iinit, name, align_ldim)
 
 
 def ft_arspec(
@@ -716,24 +797,32 @@ def db_node(*args, name=None, no_merge=False, align=True) -> ContainerNode:
     return ContainerNode(*args, rule=BufferMap.DISTINCT, name=name, no_merge=no_merge, align=align)
 
 # 7) DOT export
+def _dtype_label(dtype: np.dtype | sym.Expr | sym.Symbol) -> str:
+    # If dtype is concrete, abbreviate it.
+    if isinstance(dtype, np.dtype): return dtype_abbr(dtype)
+    # If dtype is symbolic expression, stringify via gen_str.
+    if isinstance(dtype, sym.Expr): return gen_str(dtype)
+    # Otherwise fall back to str() (e.g. sym.Symbol).
+    return str(dtype)
+
+
 def _dot_node_attr(node: ENode, *, with_offsets: bool) -> str:
     """Generate DOT attributes with name inside node and other info as
     external."""
     # Secondary info for external label (xlabel)
     info_parts: List[str] = []
     col = 'color="white"'
+    # If node has a label, include it in the displayed DOT label.
     if node.label: info_parts.append(f"- {node.label} -")
+    # If node is an ArrayNode, include shape/dtype details.
     if isinstance(node, ArrayNode):
-        dtype_label = (
-            dtype_abbr(node.dtype)
-            if isinstance(node.dtype, np.dtype)
-            else gen_str(node.dtype)
-            if isinstance(node.dtype, sym.Expr)
-            else str(node.dtype)
-        )
+        dtype_label = _dtype_label(node.dtype)
+        # If align_ldim is enabled, show both logical and backing shapes.
         if node.align_ldim is not None: info_parts.append(f"{node.shape}, {node.bshape}, {dtype_label}")
+        # Otherwise, show only logical shape and dtype.
         else: info_parts.append(f"{node.shape}, {dtype_label}")
         col = 'color="lime"'
+    # If node is a ValueNode, show a short repr of its value.
     elif isinstance(node, ValueNode):
         vt = repr(node.value)
         qrg = 18
@@ -741,14 +830,21 @@ def _dot_node_attr(node: ENode, *, with_offsets: bool) -> str:
         if qrg <= len(vt): vt = vt[:10] + "..."
         info_parts.append(vt)
         col = 'color="pink"'
+    # If node is a DISTINCT container, color it orange.
     elif node.rule == BufferMap.DISTINCT: col = 'color="orange"' #bc it can only be a ContainerNode by this conditional.
+    # Otherwise it is a SHARED container, color it cyan.
     else: col = 'color="cyan"' #it is shared
+    # If with_offsets is enabled and ofs is known, include [ofs, end) range.
     if with_offsets and node.ofs is not None:
+        # If nbytes is symbolic, display the expression; otherwise compute concrete end.
         if isinstance(node.nbytes, sym.Expr): end = f"{node.ofs}+{gen_str(node.nbytes)}"
         else: end = node.ofs + node.nbytes
         info_parts.append(f"[{node.ofs}, {end})")
+    # If node has an nbytes field, show size summary.
     if hasattr(node.nbytes,'nbytes'):
+        # If symbolic, show raw bytes expression string.
         if isinstance(node.nbytes, sym.Expr): info_parts.append(f"{gen_str(node.nbytes)} B")
+        # Otherwise, show KB summary for human readability.
         else:
             info_parts.append(f"{node.nbytes / 1024:.2f} KB")  # maybe change to
     # Build attribute list
@@ -772,35 +868,46 @@ def bmap_todot(bmap: BaseNode, *, with_offsets: bool = True) -> str:
 
 
 # 8) PyVis visualiser
-def _bmap_pyvis(src: Union[str, BaseNode], *, with_offsets: bool = False) -> Network:
+def _clean_field(node: dict[str, Any], key: str) -> None:
+    val = node.get(key)
+    # If the field is a quoted DOT string, strip embedded quotes for display.
+    if isinstance(val, str) and val.startswith('"') and val.endswith('"'): node[key] = val.strip('"')
+
+
+def _clean_nodes(nodes: list[dict[str, Any]]) -> None:
+    # Normalize all node labels/colors from pydot/pyvis which may embed quotes.
+    for node in nodes:
+        _clean_field(node, "label")
+        _clean_field(node, "color")
+
+
+def _bmap_pyvis(src: Union[str, BaseNode], *, with_offsets: bool = False) -> Network:  # pragma: no cover
     """Internal helper that returns a configured ``pyvis.Network`` graph.
 
     Accepts either a DOT string or a ``ContainerNode``; when given a node,
     converts via ``bmap_todot`` then builds a NetworkX graph using ``pydot``.
     """
+    # Optional deps: keep ImportError path for environments without pyvis.
     try:
         import networkx as nx  # type: ignore[missing-import]
         import pydot  # type: ignore[missing-import]
         from pyvis.network import Network  # type: ignore[untyped-import]
     except ImportError as e: raise ImportError("pyvis, networkx, pydot required for bmap_pyvis()") from e
+    # If src is already DOT, use it as-is.
     if isinstance(src, str): dot_data = src
+    # If src is a buffer-map node, serialize it to DOT first.
     elif isinstance(src, BaseNode): dot_data = bmap_todot(src, with_offsets=with_offsets)
+    # Otherwise, refuse unsupported inputs.
     else: raise TypeError("src must be DOT str or ContainerNode")
     graphs = pydot.graph_from_dot_data(dot_data)
+    # If pydot couldn't parse, fail fast with a clear error.
     if not graphs: raise ValueError("Failed to parse DOT data")
     pgraph = graphs[0]
     g_nx: Any = nx.drawing.nx_pydot.from_pydot(pgraph)
     net = Network(directed=True)
     net.from_nx(g_nx)
     # Strip embedded quotes from labels and colors
-    for node in net.nodes:
-        # Clean label
-        lbl = node.get("label")
-        if isinstance(lbl, str) and lbl.startswith('"') and lbl.endswith('"'):
-            node["label"] = lbl.strip('"')
-        # Clean color
-        col = node.get("color")
-        if isinstance(col, str) and col.startswith('"') and col.endswith('"'): node["color"] = col.strip('"')
+    _clean_nodes(net.nodes)
     net.set_options("""{
   "layout": {"hierarchical":{"enabled":true,"direction":"UD","sortMethod":"hubsize","blockShifting":true,"edgeMinimization":true}},
   "physics":{"enabled":true}
@@ -834,6 +941,7 @@ def bmap_pyvis(
 ) -> Network:
     """Build a PyVis interactive tree using a top-down layout and physics
     enabled."""
+    # Optional deps: keep ImportError path for environments without pyvis.
     try:
         import networkx as nx  # type: ignore[missing-import]
         import pydot  # type: ignore[missing-import]
@@ -844,6 +952,7 @@ def bmap_pyvis(
     # Obtain DOT source and parse
     dot_data = src if isinstance(src, str) else bmap_todot(src, with_offsets=with_offsets)
     graphs = pydot.graph_from_dot_data(dot_data)
+    # DOT parse must return at least one graph.
     if not graphs: raise ValueError("Failed to parse DOT data")
     #print(graphs)
     pgraph = graphs[0]
@@ -853,9 +962,11 @@ def bmap_pyvis(
     # Determine root: if ContainerNode passed, use its name; else take first node
 
     nodes = list(g_nx.nodes)
+    # Pick a root id when graph has nodes; otherwise root_id stays None.
     root_id = nodes[0] if nodes else None
     dummy = 0
     # Note: For some reason we need a dummy node otherwise the top level node will be out of place try the old _bmap_pyvis to see strange behavior
+    # Ensure a dummy anchor node exists to stabilize hierarchical layout.
     if dummy not in g_nx: g_nx.add_node(
             dummy,
             label="",
@@ -868,10 +979,12 @@ def bmap_pyvis(
 
     succ = list(g_nx.successors(root_id))
     # # Remove all existing root->* edges
+    # Remove existing root edges so we can reinsert in a preferred order.
     for v in succ:
         g_nx.remove_edge(root_id, v)
     # Re-add with dummy first, then self-loop, then the rest
     new_order = [dummy] + [v for v in succ if v not in (dummy, root_id)]
+    # Re-add root edges so dummy comes first, then remaining children.
     for v in new_order:
         g_nx.add_edge(root_id, v)
     # # No other graph modifications
@@ -887,12 +1000,9 @@ def bmap_pyvis(
     net.from_nx(g_nx)
 
     # Clean any embedded quotes
-    for node in net.nodes:
-        lbl = node.get("label")
-        if isinstance(lbl, str) and lbl.startswith('"') and lbl.endswith('"'): node["label"] = lbl.strip('"')
-        col = node.get("color")
-        if isinstance(col, str) and col.startswith('"') and col.endswith('"'): node["color"] = col.strip('"')
+    _clean_nodes(net.nodes)
 
+    # If default options + offsets, swap to bootleg config to keep layout stable.
     if render_options == BMAP_ROPTS and with_offsets:
         render_options = _bopt  # bootleg? Yes
     # render opts
