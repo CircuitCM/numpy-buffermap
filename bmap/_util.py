@@ -1,4 +1,5 @@
 # ruff: noqa: E731
+from __future__ import annotations
 
 import importlib.util
 import itertools

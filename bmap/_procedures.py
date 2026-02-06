@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import copy
-import keyword
 from collections.abc import Collection
 from functools import partial
 from typing import Any, Callable, List, Sequence, Tuple, TypeGuard, Union

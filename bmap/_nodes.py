@@ -1,6 +1,4 @@
-# ruf
-# from collections.abc import Collection
-# from functools import cache
+from __future__ import annotations
 
 import math as mt
 from itertools import chain
