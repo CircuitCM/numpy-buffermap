@@ -1,3 +1,0 @@
-[pytest]
-markers = ["regression: Tests that failed in old versions."]
-xfail_strict = true

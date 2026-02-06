@@ -65,32 +65,12 @@ def build_buffer_allocator(
         or equal to the alignment you choose to build the buffer_map with.
     """
     # Normalize args to names so user may pass sympy.Symbol or str.
-    args = [
-        *(
-            (k.name if isinstance(k, sym.Symbol) else k)
-            for k in args
-            if k is not None and k != "None" and isinstance(k, (sym.Symbol, str))
-        ),
-    ]
-    # Drop invalid parameter names; caller may accidentally pass non-symbol junk (e.g. build_bmap return helpers).
-    args = [a for a in args if isinstance(a, str) and a.isidentifier() and not keyword.iskeyword(a)]
+    args = [*((k.name if isinstance(k, sym.Symbol) else k) for k in args),]
     # Sort args so dtype params are declared first in generated signature.
-    args.sort(
-        key=lambda x: c_orlen(x, "type_"),
-    )
+    args.sort(key=lambda x: c_orlen(x, "type_"),)
     # Normalize kwargs keys to names; only symbol keys are supported in allocator signature.
-    kwargs = (
-        {
-            (k.name if isinstance(k, sym.Symbol) else k): v
-            for k, v in kwargs.items()
-            if k is not None and k != "None" and isinstance(k, (sym.Symbol, str))
-        }
-        if kwargs is not None
-        else {}
-    )
-    kwargs = {k: v for k, v in kwargs.items() if isinstance(k, str) and k.isidentifier() and not keyword.iskeyword(k)}
-    # For now there is also no dead-parameter/dead-code removal, and no checks
-    # for if all used input parameters are referenced in the header.
+    kwargs ={(k.name if isinstance(k, sym.Symbol) else k): v for k, v in kwargs.items()} if kwargs is not None else {}
+    # for now there is also no dead-parameter/dead-code removal, and no checks for if all used input parameters are referenced in the header
     # If caller wants buffer existence check, include check_alloc logic and seed ct for reduced expr walk.
     if chkforbuffer:
         hd = BButil.build_header(buffer_map, args, kwargs, balign=balign)

@@ -1,4 +1,0 @@
-
-#conda env seems broken for pyrefly rn
-#python-interpreter-path = "your/path"
-#conda-environment = "your_conda_env"

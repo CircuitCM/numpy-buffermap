@@ -410,8 +410,9 @@ def test_build_buffer_allocator_no_check() -> None:
     """Cover allocator generation with chkforbuffer disabled."""
     root = sb_node(ar_spec((2,), name="a"), name="shared")
     rgs=build_bmap(root, align=BufferAlign.AVX512)
+    print(rgs)
     alloc_src = build_buffer_allocator(root,rgs, chkforbuffer=False, fullreduce=False)
-    _write_test_output("test_build_buffer_allocator_no_check", alloc_src, is_py=True)
+    _write_test_output("test_build_buffer_allocator_no_check", str(rgs)+'\n'+alloc_src, is_py=True)
     assert "None=None" not in alloc_src #fix later
 
 
